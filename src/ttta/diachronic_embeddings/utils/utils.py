@@ -5,7 +5,7 @@ import time
 import logging
 from typing import List, Dict
 from api.api_call import OxfordDictAPI
-from settings import EmbeddingFiles
+from src.ttta.diachronic_embeddings.utils.settings import EmbeddingFiles
 from components import Words
 from pydantic import parse_obj_as
 
