@@ -1,12 +1,12 @@
 
 import random
-from components import WordSimilarities
+from src.ttta.diachronic_embeddings.utils.components import WordSimilarities
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import BSpline, splrep
 from typing import Literal
 import warnings
-from settings import EmbeddingFiles, FileLoader
+from src.ttta.diachronic_embeddings.utils.settings import EmbeddingFiles, FileLoader
 import json
 
 
