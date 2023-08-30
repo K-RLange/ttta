@@ -2,8 +2,8 @@
 import os
 import json
 from numpy.linalg import norm
-from components import Embedding, WordSenseEmbedding, SenseEmbedding
-from settings import EmbeddingFiles, FileLoader
+from src.ttta.diachronic_embeddings.utils.components import Embedding, WordSenseEmbedding, SenseEmbedding
+from src.ttta.diachronic_embeddings.utils.settings import EmbeddingFiles, FileLoader
 import logging
 import numpy as np
 from collections import Counter

@@ -1,14 +1,16 @@
+import os.path
 
 import torch
+from pathlib import Path
 from transformers import BertTokenizer, BertModel
 from transformers import logging as lg
-from components import OxfordAPIResponse, SenseEmbedding
-from settings import FileLoader
-import json
+from src.ttta.diachronic_embeddings.utils.components import OxfordAPIResponse, WordSenseEmbedding
+from src.ttta.diachronic_embeddings.utils.settings import FileLoader
 import logging
+from typing import Union
 
 
-class VectorEmbeddings():
+class VectorEmbeddings:
     """
     This class is used to infer the vector embeddings of a word from a sentence.
 
@@ -21,9 +23,16 @@ class VectorEmbeddings():
     """
     def __init__(
         self,
-        model_path:str=None,
+        pretrained_model_path:Union[str, Path] = None,
     ):
-        self.model_path = model_path
+        self.model_path = pretrained_model_path
+        if pretrained_model_path is not None:
+            if not os.path.exists(pretrained_model_path):
+                raise ValueError(
+                    f'The path {pretrained_model_path} does not exist'
+                )
+            self.model_path = Path(pretrained_model_path)
+
         self._tokens = []
         self.model = None
         self.vocab = False
@@ -37,28 +46,31 @@ class VectorEmbeddings():
         return self._tokens
 
     def _bert_case_preparation(self) -> None:
-        if self.model_path is not None:
-            self.bert_tokenizer = BertTokenizer.from_pretrained(self.model_path)
-            self.model = BertModel.from_pretrained(
-                self.model_path,
-                output_hidden_states = True,
-            )
-            self.model.eval()
-            self.vocab = True
-            return
-
-        self.bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        """
+        This method is used to prepare the BERT model for the inference.
+        """
+        model_path = self.model_path if self.model_path is not None else 'bert-base-uncased'
+        self.bert_tokenizer = BertTokenizer.from_pretrained(model_path)
         self.model = BertModel.from_pretrained(
-            'bert-base-uncased',
+            model_path,
             output_hidden_states = True,
         )
         self.model.eval()
         self.vocab = True
 
     def infer_vector(self, doc:str, main_word:str):
+        """
+        This method is used to infer the vector embeddings of a word from a sentence.
+        Args:
+            doc: Document to process
+            main_word: Main work to extract the vector embeddings for.
+
+        Returns: torch.Tensor
+
+        """
         if not self.vocab:
             raise ValueError(
-                f'The Embedding model {self.model} has not been initialized'
+                f'The Embedding model {self.model.__class__.__name__} has not been initialized'
             )
         marked_text = "[CLS] " + doc + " [SEP]"
         tokens = self.bert_tokenizer.tokenize(marked_text)
@@ -120,37 +132,63 @@ class ExtractSenseEmbeddings():
         self.api_component = OxfordAPIResponse()
         self.all_words = FileLoader.load_files(self.__class__.__name__)
 
-    def __call__(self, sense:dict, main_w):
+    def __call__(self, sense:dict, given_word:str) -> 'ExtractSenseEmbeddings':
+        """
+        This method is used to initialize the object with the particular senses and the given word.
+        Args:
+            sense: The sense for which the embeddings are to be extracted.
+            given_word: The word to track in each examples for all senses of the word.
+
+        Returns: The self object initialized.
+
+        """
         if not isinstance(sense, OxfordAPIResponse):
             raise ValueError(
                 f'Expected type {OxfordAPIResponse.__class__} for the sense, but got type: {type(sense)}'
             )
         self.sense = sense
-        self.word = main_w
+        self.word = given_word
         return self
 
-    def _infer_sentence_vector(self):
+    def _infer_sentence_embedding(self) -> torch.Tensor:
+        """
+        Infer the embeddings of the give_word in each example of the sense.
+        Returns: torch.Tensor
+
+        """
         for example in self.sense.examples:
             yield self.vector_embeddings.infer_vector(
                 doc=example,
                 main_word=self.word
             )
 
-    def infer_mean_vector(self):
-        all_token_embeddings =  torch.stack(list(self._infer_sentence_vector()))
-        return SenseEmbedding(
+    def infer_mean_vector(self) -> WordSenseEmbedding:
+        """
+        Infer the mean vector embedding for the given word across all the examples in the senses.
+        Returns: WordSenseEmbedding object.
+
+        """
+        all_token_embeddings =  torch.stack(list(self._infer_sentence_embedding()))
+        return WordSenseEmbedding(
             id=self.sense.id,
             definition=self.sense.definition,
-            embeddings=torch.mean(all_token_embeddings, dim=0).tolist(),
+            embedding=torch.mean(all_token_embeddings, dim=0).tolist(),
         )
 
-    def create_sense_embeddings(self):
+    def create_sense_embeddings(self) -> list:
+        """
+        Extract the averaged vector embedding for a list of polysemous words across
+        a wide range of contexts.
+        Returns:
+            list: A list of dictionaries containing the word and the sense embeddings.
+
+        """
         all_embeddings = []
         word_embedding = {}
-        for word in self.all_words:
-            logging.info(f'{"-"*40} Embedding the word {word.word} {"-"*40} ')
-            word_embedding['word'] = word.word
-            word_embedding['senses'] = [self(sens, word.word).infer_mean_vector() for sens in word.senses]
+        for word_obj in self.all_words:
+            logging.info(f'{"-"*40} Embedding the word {word_obj.word} {"-"*40} ')
+            word_embedding['word'] = word_obj.word
+            word_embedding['senses'] = [self(sens, word_obj.word).infer_mean_vector() for sens in word_obj.senses]
             all_embeddings += [word_embedding.copy()]
 
         return all_embeddings
@@ -158,7 +196,4 @@ class ExtractSenseEmbeddings():
 
 
 if __name__ == '__main__':
-    # print(VectorEmbeddings(model_path='bert_model_new').infer_vector('Hello my name is John', 'john'))
-    # with open('../embeddings/embeddings_for_senses.json', 'w') as f:
-    #         json.dump(e.create_sense_embeddings(), f, indent=4)
     pass

@@ -1,11 +1,13 @@
+import os
 
-from pydantic import BaseSettings, Field
+from pydantic_settings import BaseSettings
+from pydantic import Field
 from dotenv import load_dotenv
 import logging
 import json
 from pydantic import parse_obj_as
 from typing import List
-from components import Words, SenseEmbedding
+from src.ttta.diachronic_embeddings.utils.components import Words, SenseEmbedding
 
 load_dotenv(verbose=True)
 class OxfordAPISettings(BaseSettings):
@@ -24,12 +26,12 @@ class OxfordAPISettings(BaseSettings):
 
 
 class EmbeddingFiles(BaseSettings):
-    poly_words_f:str = '../data/target_words/polysemous.txt'
-    oxford_word_senses: str = '../data/target_words/senses_oxford_api.json'
-    sense_embeddings: str = '../embeddings/embeddings_for_senses.json'
+    poly_words_f:str = os.getenv('POLY_WORDS')
+    oxford_word_senses: str = os.getenv('OXFORD_WORD_SENSES')
+    sense_embeddings: str = os.getenv('SENSE_EMBEDDINGS')
     embeddings_root_dit:str = '../embeddings'
     bert_model:str = 'bert_model_new'
-    years_used = [1980, 1982, 1985, 1987, 1989, 1990, 1995, 2000, 2001, 2002, 2003, 2005, 2008, 2009, 2010, 2012,
+    years_used:list = [1980, 1982, 1985, 1987, 1989, 1990, 1995, 2000, 2001, 2002, 2003, 2005, 2008, 2009, 2010, 2012,
                      2013, 2015, 2016, 2017, 2018]
 
 class FileLoader():

@@ -4,15 +4,12 @@ import json
 from typing import Dict
 from itertools import chain
 import re
-from nltk import WordNetLemmatizer
-from src.settings  import OxfordAPISettings
+from src.ttta.diachronic_embeddings.utils.settings import OxfordAPISettings
+from src.ttta.diachronic_embeddings.utils.components import OxfordAPIResponse
 import logging
-from src.components import OxfordAPIResponse
-from typing import List
 
 
-class OxfordDictAPI():
-    # write a detailed comment on the OxfordDictAPI class
+class OxfordDictAPI:
     """
     Wrapper class for the Oxford Dictionary API. It retrieves the senses and examples for a given word.
 
