@@ -2,13 +2,12 @@
 import torch
 from transformers import BertTokenizer, BertModel
 from transformers import logging as lg
-from components import OxfordAPIResponse, SenseEmbedding
-from settings import FileLoader
-import json
+from src.ttta.diachronic_embeddings.utils.components import OxfordAPIResponse, SenseEmbedding
+from src.ttta.diachronic_embeddings.utils.settings import FileLoader
 import logging
 
 
-class VectorEmbeddings():
+class VectorEmbeddings:
     """
     This class is used to infer the vector embeddings of a word from a sentence.
 
