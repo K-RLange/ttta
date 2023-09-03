@@ -1,4 +1,3 @@
-import yaml
 import os
 from glob import glob
 
@@ -8,9 +7,7 @@ class PREPROCESS():
 
     def __init__(self, config_path='pre.yaml'):
         
-        with open(config_path, "rb") as f:
-            self.configs = yaml.load(f, Loader=yaml.FullLoader)
-
+        self.configs = read_yaml(config_path)
         self.path = self.configs['input_path']
 
         if str(self.configs['periods']).lower() == 'all':

@@ -2,11 +2,26 @@ import xmltodict
 import os
 from glob import glob
 import re
+import yaml
+
 
 
 
     
 
+def read_yaml(file_path: str) -> dict:
+    """
+    Read in a yaml file and return a dictionary.
+
+    Args:
+        file_path (str): The path to the yaml file.
+
+    Returns:
+        dict: The dictionary.
+    """
+    with open(file_path) as f:
+        return yaml.load(f, Loader=yaml.FullLoader)
+    
 
 def read_xml(file_path: str) -> dict:
     """
