@@ -89,6 +89,20 @@ class Word2VecTrainer:
 
 
 
+class WordEmbeddings:
+    def __init__(
+            self,
+            model_path: str,
+            ):
+        self.model_path = model_path
+        self.model = Word2Vec.load(model_path)
+        self.vectors = self.model.wv
+    
+    def infer_vector(self, word):
+        return self.vectors[word]
+
+
+
 
 
 class Word2VecAlign:
