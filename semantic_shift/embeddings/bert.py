@@ -107,24 +107,60 @@ class BertTrainer():
     """
     def __init__(
             self,
-            train_dataset,
-            device='cpu',
+            model_name = 'bert-base-uncased',
+            max_length=419,
+            truncation=True,
+            padding="max_length",
+            batch_size=16,
+            learning_rate=5e-5,
             epochs=1,
+            device='cpu'
         ):
-        self.train_dataset = train_dataset
+       
         self.device = device
         self.epochs = epochs
+        self.batch_size = batch_size
+        self.max_length = max_length
+        self.truncation = truncation
+        self.padding = padding
 
-        self.model = BertForMaskedLM.from_pretrained('bert-base-uncased').to(self.device)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=5e-5)
+        self.model = BertForMaskedLM.from_pretrained(model_name).to(self.device)
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=learning_rate)
         self.model.train()
+
+
+    def prepare_dataset(
+            self, 
+            data: List[str],
+            words_to_mask: List[str]
+            ):
+        
+        dataset = CustomDataset(
+            data = data,
+            words_to_mask= words_to_mask,
+            max_length=self.max_length,
+            truncation=self.truncation,
+            padding=self.padding
+            )
+        
+        return dataset
+        
+
+    def train(
+            self,
+            data: List[str],
+            words_to_mask: List[str],
+            output_path: Union[str, Path] = None
+            ):
+        
+        self.data = self.prepare_dataset(data, words_to_mask)
+
         self.train_dataloader = DataLoader(
-            self.train_dataset,
-            batch_size=16,
+            self.data,
+            batch_size=self.batch_size,
             shuffle=True,
         )
 
-    def train(self):
         for epoch in range(self.epochs):
             loop = tqdm(self.train_dataloader, leave=True)
             for batch in loop:
@@ -145,7 +181,7 @@ class BertTrainer():
                 loop.set_description(f'Epoch {epoch}')
                 loop.set_postfix(loss=loss.item())
 
-        self.model.save_pretrained("bert_model_new")
+        self.model.save_pretrained(output_path)
 
 
 
