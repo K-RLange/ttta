@@ -14,7 +14,7 @@ import pandas as pd
 from scipy.spatial.distance import cosine
 from wordcloud import WordCloud
 from scipy.sparse import csr_matrix, find, lil_matrix, hstack, vstack
-from LDA.lda_gibbs import vanilla_gibbs_func, load_wk_mat_func, final_assignment_func, load_dk_mat_func
+from .LDA.lda_gibbs import vanilla_gibbs_func, load_wk_mat_func, final_assignment_func, load_dk_mat_func
 from typing import Union, List, Tuple, Callable, Set
 from collections import Counter
 from tqdm import tqdm
@@ -23,6 +23,7 @@ import time
 from itertools import chain
 from joblib import Parallel, delayed
 from matplotlib.backends.backend_pdf import PdfPages
+from .topic_matching import TopicClusters
 faulthandler.enable()
 
 
@@ -405,7 +406,7 @@ class LDAPrototype:
 
         if self._prototype > 1:
             current_word_topic_matrices = [self.get_word_topic_matrix(word_vec, x[0]) for x in all_results]
-            sclop = self._select_prototype(current_word_topic_matrices, self._measure)
+            sclop = TopicClusters(current_word_topic_matrices, self._measure, self._threshold, self._K).select_prototype()
             if sclop is None:
                 new_assignments = np.random.randint(0, self._K, len(word_vec), dtype=np.uint32)
                 prototype = [new_assignments.copy(), self.get_word_topic_matrix(word_vec, new_assignments), self.get_document_topic_matrix(doc_vec, new_assignments)]
@@ -418,101 +419,6 @@ class LDAPrototype:
         self._assignments = np.concatenate((self._assignments, prototype[0]), axis=0) if self._assignments is not None else prototype[0]
         self._word_vec = np.concatenate((self._word_vec, word_vec), axis=0) if self._word_vec is not None else word_vec
         self._document_topic_matrix.append(prototype[2])
-
-    def _select_prototype(self, word_topic_matrices: List[np.ndarray], measure: Union[str, callable]) -> Union[np.ndarray, None]:
-        """
-        Selects the prototype from a list of word-topic matrices
-        Args:
-            word_topic_matrices: list of word-topic matrices
-            measure: measure to use for prototype selection
-        Returns:
-            index of the prototype in the list of word-topic matrices
-        """
-        if not isinstance(word_topic_matrices, list):
-            raise TypeError("word_topic_matrices must be a list of numpy arrays!")
-        if not isinstance(word_topic_matrices[0], np.ndarray):
-            raise TypeError("word_topic_matrices must be a list of numpy arrays!")
-        if not isinstance(measure, str) and not callable(measure):
-            raise TypeError("measure must be a string or a callable!")
-        word_topic_matrices = np.vstack([x.transpose() for x in word_topic_matrices])
-        threshold_dict, faulty_indices = self._check_topic_thresholds(word_topic_matrices) if measure == "jaccard" else (None, set())
-        if len(faulty_indices) == self._prototype:
-            warnings.warn(f"All models are faulty. This can happen when there are too few documents to "
-                          f"properly train the LDA. The assignments for this time chunk will be randomly sampled.")
-            return None
-        elif len(faulty_indices) > 0:
-            warnings.warn(f"Encountered {len(faulty_indices)} faulty models. This can happen when there are too few "
-                          f"documents to properly train the LDA or the 'topic_threshold'-parameter has been set too "
-                          f"restrictively. The faulty models will be ignored for the prototype selection.")
-        sclops = [[] for _ in range(self._prototype)]
-        start = time.time()
-        for i in range(self._prototype-1):
-            for j in range(i + 1, self._prototype):
-                if i in faulty_indices or j in faulty_indices:
-                    sclops[i].append(-1)
-                    sclops[j].append(-1)
-                    continue
-                sclop = self._cluster_topics(i, j, measure, threshold_dict)
-                sclops[i].append(sclop)
-                sclops[j].append(sclop)
-        if self._verbose > 0:
-            print(f"Prototype selection finished in {(time.time() - start).__round__()} seconds")
-        return np.argmax([np.mean(x) for x in sclops])
-
-    def _check_topic_thresholds(self, word_topic_matrices: np.ndarray) -> Tuple[dict,  Set[int]]:
-        """
-        Filters out words that occur less than the threshold in a topic for the prototype selection.
-        Args:
-            word_topic_matrices: list of word-topic matrices
-        Returns:
-            threshold_dict: dictionary containing the indices of the words that occur more than the threshold in a topic
-            faulty_models: Index of all faulty models that are to be ignored, because they store all words into one topic
-                           (happens rarely when there are too few documents).
-        """
-        if not isinstance(word_topic_matrices, np.ndarray):
-            raise TypeError("word_topic_matrices must be a numpy array!")
-        row_sums = np.sum(word_topic_matrices, axis=1)
-        row_sums = np.where(row_sums < 1, 1, row_sums)
-        vk_thresholds = np.argwhere((word_topic_matrices > self._threshold[0]) & (word_topic_matrices / row_sums[:, None] >= self._threshold[1]))
-        threshold_dict = {x: list(set(vk_thresholds[np.argwhere(vk_thresholds[:, 0] == x).flatten(), 1])) for x in range(self._prototype * self._K)}
-        zero_indices = np.array([key for key, value in threshold_dict.items() if len(value) == 0])
-        faulty_models = set([floor(index / self._K) for index in zero_indices])
-        return threshold_dict, faulty_models
-
-    def _cluster_topics(self, i: int, j: int, measure: Union[str, callable], threshold_dict: dict) -> float:
-        """
-        Clusters topics given their word-topic matrices and returns the portion of matched pairs stemming from different models
-        Args:
-            i: index of the first topic
-            j: index of the second topic
-            measure: measure to use for prototype selection
-            threshold_dict: dictionary containing the indices of the words that occur more than the threshold in a topic
-        Returns:
-            portion of matched pairs stemming from different models
-        """
-        if not isinstance(i, int):
-            raise TypeError("i must be an integer!")
-        if not isinstance(j, int):
-            raise TypeError("j must be an integer!")
-        if not isinstance(measure, str) and not callable(measure):
-            raise TypeError("measure must be a string or a callable!")
-        if not isinstance(threshold_dict, dict):
-            raise TypeError("threshold_dict must be a dictionary!")
-        temp_mat = np.zeros((2 * self._K, len(self._vocab)), dtype=int)
-        if measure == "jaccard":
-            for row in range(self._K):
-                temp_mat[row, threshold_dict[row + i * self._K]] = 1
-                temp_mat[row + self._K, threshold_dict[row + j * self._K]] = 1
-
-        temp_distances = scipy.spatial.distance.pdist(temp_mat, metric=measure)
-        linkage_result = linkage(temp_distances, method='complete')
-        linkage_result = pd.DataFrame(linkage_result[:, :2], columns=['topic_one', 'topic_two']).astype(int)
-        linkage_result = linkage_result[linkage_result['topic_one'] < 2 * self._K]
-        linkage_result = linkage_result[linkage_result['topic_two'] < 2 * self._K]
-        number_of_matched_topics = len(linkage_result[[(linkage_result['topic_one'][i] < self._K <= linkage_result['topic_two'][i]) or
-                                                       (linkage_result['topic_two'][i] < self._K <= linkage_result['topic_one'][i])
-                                                       for i, _ in linkage_result.iterrows()]])
-        return 1 - (self._K - number_of_matched_topics) / (2 * self._K)
 
     def _sample_gibbs(self, word_vec: np.ndarray, assignment_vec: np.ndarray, doc_vec: np.ndarray, word_topic_matrix: np.ndarray,
                       document_topic_matrix: np.ndarray, v_sum: np.ndarray, epochs: int = 200) -> (

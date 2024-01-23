@@ -1,17 +1,19 @@
 import os
 import pickle
+import matplotlib
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import cosine
 from typing import Union, List, Tuple, Callable
 from tqdm import tqdm
-from lda_prototype import LDAPrototype
+from .lda_prototype import LDAPrototype
 from datetime import datetime
 import warnings
 import seaborn as sns
 from operator import itemgetter
 import math
+from ..preprocessing import chunk_creation
 
 class RollingLDA:
     def __init__(self, K: int, how: Union[str, List[datetime]] = "M", warmup: int = 48, memory: int = 3, alpha: float = None, gamma: float = None,
@@ -144,7 +146,8 @@ class RollingLDA:
         texts[date_column] = pd.to_datetime(texts[date_column])
         texts.sort_values(by=date_column, inplace=True)
         self.chunk_indices = self._get_time_indices(texts)
-        self.lda.fit(texts[text_column], epochs=self._initial_epochs, chunk_end=self.chunk_indices.iloc[self._warmup + 1]["chunk_start"], memory_start=0, workers=workers)
+        self.lda.fit(texts[text_column], epochs=self._initial_epochs,
+                     chunk_end=self.chunk_indices.iloc[self._warmup + 1]["chunk_start"], memory_start=0, workers=workers)
         iterator = self.chunk_indices.iloc[self._warmup + 1:].iterrows()
         if self._verbose > 0:
             iterator = tqdm(iterator, unit="chunk")
@@ -462,40 +465,9 @@ class RollingLDA:
         else:
             if isinstance(self._how, str):
                 warnings.warn(f"The time indices are created using fixed dates instead of periodic distances. This might create inconsistencies.")
-
-        df_index = pd.DataFrame({'chunk_start': range(len(texts))}, index=pd.to_datetime(texts[self._date_column]))
-        if self.lda.is_trained():
-            if df_index.index.min() <= self._last_text[self._date_column]:
-                raise ValueError("The dates of the new texts chronologically overlap with the text that were already used to fit a RollingLDA!")
-
-        if isinstance(how, str):
-            period_start = df_index.resample(how).first()
-        else:
-            if df_index.index.max() < how[-1]:
-                how = how[:-1]
-            if sum([df_index.index.min() > x for x in how]) > 1:
-                how = how[(sum([df_index.index.min() > x for x in how]) - 1):]
-            chunk_dates = pd.DatetimeIndex(how)
-            chunks = chunk_dates.searchsorted(df_index.index, "right")
-            period_start = df_index.groupby(chunk_dates[np.where(chunks < 1, 0, chunks - 1)]).first()
-            period_start.index.name = self._date_column
-
-        len_before_na_drop = len(period_start)
-        period_start = period_start.dropna()
-        rows_to_drop = []
-        current_docs_since_last_chunk = 0
-        for i, (index, row) in enumerate(period_start[1:].iterrows()):
-            current_docs_since_last_chunk += row["chunk_start"] - period_start["chunk_start"].iloc[i]
-            if current_docs_since_last_chunk < self.min_docs_per_chunk and not i == len(period_start) - 2:
-                rows_to_drop.append(index)
-            else:
-                current_docs_since_last_chunk = 0
-        period_start = period_start.drop(rows_to_drop)
-        if len(period_start) < len_before_na_drop:
-            warnings.warn(f"{len_before_na_drop - len(period_start)} time chunks do not fulfill the requirement of containing least {self.min_docs_per_chunk} texts and are combined "
-                          f"into larger time chunks.")
-        period_start["chunk_start"] = period_start["chunk_start"].astype(np.uint64)
-        period_start = period_start.reset_index()
+        last_date = self._last_text[self._date_column] if self.lda.is_trained() else None
+        period_start = chunk_creation._get_time_indices(texts, how, last_date=last_date, date_column=self._date_column,
+                                                        min_docs_per_chunk=self.min_docs_per_chunk)
         if update:
             period_start["chunk_start"] += self._last_text["index"] + 1
             memory_start = [period_start["chunk_start"].iloc[i - self._memory] if i - self._memory >= 0 else self.chunk_indices["chunk_start"].iloc[i - self._memory] for i in range(len(period_start))]
@@ -583,6 +555,7 @@ class RollingLDA:
             Returns:
                 None
         """
+        matplotlib.use('TkAgg')
         if self._distances_simulated is None or self._distances_observed is None:
             raise ValueError("The distances have not been calculated yet. Call topical_changes() first!")
         top = self.top_words(chunk=None, number=3, importance=True)

@@ -20,7 +20,8 @@ setup(
     author="Kai-Robin Lange, Lars Grönberg, Niklas Benner, Imene Kolli, Aymane Hachcham, Jonas Rieger and Carsten Jentsch",
     author_email="<kalange@statistik.tu-dortmund.de>",
     description=DESCRIPTION,
-    packages=find_packages(),
+    packages=find_packages("src"),
+    package_dir={"": "src"},
     url="https://github.com/K-RLange/ttta",
     install_requires=['nltk', 'Cython', "pandas", "gensim", "matplotlib", "wordcloud", "spacy", "joblib",
                       "scipy", "numpy", "tqdm", "seaborn"],
@@ -37,7 +38,7 @@ setup(
         "Operating System :: Microsoft :: Windows",
     ],
     cmdclass={'build_ext': build_ext},
-    ext_modules=[Extension("src.ttta.methods.LDA.lda_gibbs",
+    ext_modules=[Extension("ttta.methods.LDA.lda_gibbs",
                  sources=["src/ttta/methods/LDA/lda_gibbs.pyx", "src/ttta/methods/LDA/lda_gibbs.c"],
                  include_dirs=[numpy.get_include()])],
 )
