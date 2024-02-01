@@ -19,7 +19,7 @@ Use this function to split your data into time-chunks and then feed the texts fr
 ## Interface for all Method-classes
 Method-classes implementing NLP-models should contain the following functions:
 - .save() and .load() to save/load the model itself from disk using pickle
-- .fit() to fit the model
+- .fit() to fit the model. The arguments to this function should only include parameters, which cannot be set during the initialization of the class, but need to be updated during fitting. This is usually the data and the number of workers. Hyperparameters like the window size of an embedding model should be set in __init__.
 - .fit_update() if possible, to update the model with new chunk(s) after the initial training
 - .get_parameters() and .set_parameters() to update/return model parameters
 - .infer_vector() to infer the vector of a [CS]-token or of the words in a document. This should take an additional argument, indicating which time chunk to use the model from (e.g. does the user want the model of the first time chunk or the model of the last time chunk to infer the vector).
