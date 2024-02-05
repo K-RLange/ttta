@@ -6,7 +6,6 @@ from multiprocessing.pool import ThreadPool as Pool
 from math import floor
 import faulthandler
 import matplotlib
-from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import pyplot as plt
 from scipy.cluster.hierarchy import linkage
 import numpy as np
@@ -575,7 +574,7 @@ class LDAPrototype:
             width: width of the image
             height: height of the image
             show: should the image be shown
-            word_topic_matrix: word-topic matrix
+            word_topic_matrix: Optional. If you want the wordclouds to be based on a specific word-topic matrix, you can pass it here.
         Returns:
             None
         """
