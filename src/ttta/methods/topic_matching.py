@@ -41,8 +41,8 @@ class TopicClusters:
         self._K = K
         if word_topic_matrices[0].shape[1] != K:
             raise ValueError("The number of word-topic matrices must be a multiple of K!")
-        self._number_of_models = int(len(word_topic_matrices) / self._K)
-        self._vocab_length = len(word_topic_matrices[0])
+        self._number_of_models = len(word_topic_matrices)
+        self._vocab_length = word_topic_matrices[0].shape[0]
         self.sclops = None
         self.matched_topics = None
 
@@ -94,7 +94,7 @@ class TopicClusters:
                     sclops[i].append(-1)
                     sclops[j].append(-1)
                     continue
-                sclop, temp_matched_topics = self._cluster_topics(i, j, measure, threshold_dict)
+                temp_matched_topics, sclop = self._cluster_topics(i, j, measure, threshold_dict)
                 if matched_topics is None:
                     matched_topics = temp_matched_topics
                 else:
