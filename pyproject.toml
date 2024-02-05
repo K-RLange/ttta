@@ -1,0 +1,52 @@
+[project]
+# Add your project metadata here
+name = "ttta"
+version = "0.0.1"
+description = "Tools for temporal text analysis: A Python package providing diachronic tools for text analysis."
+readme = {file= "README.md", content-type = "text/markdown"}
+authors = [
+    {name = "Kai-Robin Lange", email = "kalange@statistik.tu-dortmund.de"},
+    {name = "Lars Grönberg", email = "lars.groenberg@tu-dortmund.de"},
+    {name = "Niklas Benner", email = "benner@statistik.tu-dortmund.de"},
+    {name = "Imene Kolli", email = "imene.kolli@tu-dortmund.de"},
+    {name = "Aymane Hachcham", email = "aymane.hachcham@tu-dortmund.de"},
+    {name = "Jonas Rieger", email = "rieger@statistik.tu-dortmund.de"},
+    {name = "Carsten Jentsch", email = "jentsch@statistik.tu-dortmund.de"}
+]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Operating System :: Unix",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+]
+keywords = ["python", "nlp", "diachronic embeddings", "dynamic topic modelling", "document scaling"]
+dependencies = [
+    "nltk",
+    "Cython",
+    "pandas",
+    "gensim",
+    "matplotlib",
+    "wordcloud",
+    "spacy",
+    "joblib",
+    "scipy",
+    "numpy",
+    "tqdm",
+    "seaborn",
+]
+
+[build-system]
+requires = ["setuptools", "wheel", "Cython", "numpy"]
+
+[tool.pyx-build.cythonize]
+sources = [
+    "src/ttta/methods/LDA/lda_gibbs.pyx"
+]
+include_dirs = [
+    "{numpy.get_include()}"
+]
