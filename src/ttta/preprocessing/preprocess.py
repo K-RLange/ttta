@@ -1,7 +1,18 @@
 import os
 from glob import glob
-
+from typing import List, Tuple
+import numpy as np
+from scipy.sparse import lil_matrix, hstack, vstack
+import itertools
+from collections import Counter
 from utils.utils import *
+import re
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+lemma = WordNetLemmatizer()
+stop = stopwords.words("english")  # We use english texts
+stop = [re.sub(r"[^a-z ]", "", x) for x in stop]
+
 
 class PREPROCESS():
 
@@ -46,8 +57,105 @@ class PREPROCESS():
 
 
 
-    
-        
+
+def preprocess(texts):
+    """
+    Implements a very barebone preprocessing procedure for english texts. Is used by the pipeline-method and can be replaced by any arbitrary preprocessing function.
+    Args:
+        texts: list of texts
+    Returns:
+        list of preprocessed texts
+    """
+    if not isinstance(texts, list):
+        try:
+            texts = list(texts)
+        except ValueError:
+            raise TypeError("texts must be a list of strings!")
+    if not isinstance(texts[0], str):
+        try:
+            texts = [str(x) for x in texts]
+        except ValueError:
+            raise TypeError("texts must be a list of strings!")
+    processed_texts = []
+    for text in texts:
+        text = text.lower()
+        text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"[^a-z ]", "", text).split()
+        text = [x for x in text if x not in stop and len(x) > 2]
+        text = [lemma.lemmatize(x) for x in text]
+        processed_texts.append(text)
+    return processed_texts
+
+def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, deleted_indices=None, dtm: np.ndarray = None) -> Tuple[np.ndarray, List[str], List[int]]:
+    """
+    Creates a document-term matrix from a list of texts and updates the existing dtm if there is one.
+    Stores both the dtm and the vocabulary in the class.
+    Args:
+        texts: list of texts
+    Returns:
+        None
+    """
+    if not isinstance(texts, list):
+        try:
+            texts = list(texts)
+        except ValueError:
+            raise TypeError("texts must be a list of list of strings!")
+    if not isinstance(texts[0], list):
+        try:
+            texts = [list(x) for x in texts]
+        except ValueError:
+            raise TypeError("texts must be a list of lists of strings!")
+    if not isinstance(texts[0][0], str):
+        try:
+            texts = [[str(x) for x in text] for text in texts]
+        except ValueError:
+            raise TypeError("texts must be a list of lists of strings!")
+    if not isinstance(vocab, list):
+        try:
+            vocab = list(vocab)
+        except ValueError:
+            raise TypeError("vocab must be a set of strings!")
+    if not isinstance(min_count, int):
+        try:
+            min_count = int(min_count)
+        except ValueError:
+            raise TypeError("min_count must be an integer!")
+    if deleted_indices is None:
+        deleted_indices = []
+    if not isinstance(deleted_indices, list):
+        raise TypeError("deleted_indices must be a list of integers!")
+    if not isinstance(deleted_indices[0], int):
+        raise TypeError("deleted_indices must be a list of integers!")
+    if dtm is not None:
+        if not isinstance(dtm, np.ndarray):
+            raise TypeError("dtm must be a numpy array!")
+
+    all_new_words_counted = Counter([word for doc in texts for word in doc])
+    old_vocab_set = set(vocab)
+    new_vocabulary = vocab + list(set([word for word, value in all_new_words_counted.items() if value >= min_count and word not in old_vocab_set]))
+    new_vocabulary_index = {word: i for i, word in enumerate(new_vocabulary)}
+    new_vocabulary_set = set(new_vocabulary)
+
+    non_deleted_bool = [len([word for word in text if word in new_vocabulary_set]) > 0 for i, text in enumerate(texts)]
+    non_deleted_indices = np.argwhere(non_deleted_bool).flatten()
+    deleted_indices.extend(non_deleted_indices + max(deleted_indices + [0]))
+    texts = list(itertools.compress(texts, non_deleted_bool))
+
+    updated_dtm = lil_matrix((len(texts), len(new_vocabulary)))
+    for i, doc in enumerate(texts):
+        word_counts = Counter(doc)
+        updated_dtm[i, [new_vocabulary_index[word] for word in word_counts.keys() if word in new_vocabulary_set]] = \
+            [value for word, value in word_counts.items() if word in new_vocabulary_set]
+
+    number_of_new_words = len(new_vocabulary) - len(vocab)
+    vocab = new_vocabulary
+    if dtm is not None:
+        existing_dtm = hstack((dtm, np.zeros((dtm.shape[0], number_of_new_words))))
+        combined_dtm = vstack((existing_dtm, updated_dtm))
+        dtm = combined_dtm.tocsr()
+    else:
+        dtm = updated_dtm.tocsr()
+    return dtm, vocab, deleted_indices
 
 
 

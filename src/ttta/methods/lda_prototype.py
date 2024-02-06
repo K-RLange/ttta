@@ -23,6 +23,7 @@ from itertools import chain
 from joblib import Parallel, delayed
 from matplotlib.backends.backend_pdf import PdfPages
 from .topic_matching import TopicClusters
+from ..preprocessing.preprocess import create_dtm
 faulthandler.enable()
 
 
@@ -175,48 +176,9 @@ class LDAPrototype:
         Returns:
             None
         """
-        if not isinstance(texts, list):
-            try:
-                texts = list(texts)
-            except ValueError:
-                raise TypeError("texts must be a list of list of strings!")
-        if not isinstance(texts[0], list):
-            try:
-                texts = [list(x) for x in texts]
-            except ValueError:
-                raise TypeError("texts must be a list of lists of strings!")
-        if not isinstance(texts[0][0], str):
-            try:
-                texts = [[str(x) for x in text] for text in texts]
-            except ValueError:
-                raise TypeError("texts must be a list of lists of strings!")
         if self._verbose > 0:
             print("Creating document-term matrix...")
-        all_new_words_counted = Counter([word for doc in texts for word in doc])
-        old_vocab_set = set(self._vocab)
-        new_vocabulary = self._vocab + list(set([word for word, value in all_new_words_counted.items() if value >= self._min_count and word not in old_vocab_set]))
-        new_vocabulary_index = {word: i for i, word in enumerate(new_vocabulary)}
-        new_vocabulary_set = set(new_vocabulary)
-
-        non_deleted_bool = [len([word for word in text if word in new_vocabulary_set]) > 0 for i, text in enumerate(texts)]
-        non_deleted_indices = np.argwhere(non_deleted_bool).flatten()
-        self._deleted_indices.extend(non_deleted_indices + max(self._deleted_indices + [0]))
-        texts = list(itertools.compress(texts, non_deleted_bool))
-
-        updated_dtm = lil_matrix((len(texts), len(new_vocabulary)))
-        for i, doc in enumerate(texts):
-            word_counts = Counter(doc)
-            updated_dtm[i, [new_vocabulary_index[word] for word in word_counts.keys() if word in new_vocabulary_set]] = \
-                [value for word, value in word_counts.items() if word in new_vocabulary_set]
-
-        number_of_new_words = len(new_vocabulary) - len(self._vocab)
-        self._vocab = new_vocabulary
-        if self._dtm is not None:
-            existing_dtm = hstack((self._dtm, np.zeros((self._dtm.shape[0], number_of_new_words))))
-            combined_dtm = vstack((existing_dtm, updated_dtm))
-            self._dtm = combined_dtm.tocsr()
-        else:
-            self._dtm = updated_dtm.tocsr()
+        self._dtm, self._vocab, self._deleted_indices = create_dtm(texts, self._vocab, self._min_count, self._deleted_indices, self._dtm)
         if self._verbose > 1:
             print(f"Created document-term matrix with shape {self._dtm.shape}")
 
