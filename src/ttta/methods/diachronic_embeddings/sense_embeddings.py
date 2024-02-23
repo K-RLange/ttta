@@ -4,8 +4,8 @@ import torch
 from pathlib import Path
 from transformers import BertTokenizer, BertModel
 from transformers import logging as lg
-from src.ttta.diachronic_embeddings.utils.components import OxfordAPIResponse, WordSenseEmbedding
-from src.ttta.diachronic_embeddings.utils.settings import FileLoader
+from ttta.preprocessing.schemas import OxfordAPIResponse, WordSenseEmbedding
+from ttta.preprocessing.settings import FileLoader
 import logging
 from typing import Union
 
