@@ -8,7 +8,6 @@ class DiachronicEmbeddings():
         pass
 
 
-
     @classmethod
     def from_word2vec(cls, **kwargs):
         """

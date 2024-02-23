@@ -10,12 +10,14 @@ from typing import List
 from src.ttta.diachronic_embeddings.utils.components import Words, SenseEmbedding
 
 load_dotenv(verbose=True)
+
+
 class OxfordAPISettings(BaseSettings):
-    accept:str = Field(..., env="ACCEPT")
-    app_id:str = Field(..., env="APP_ID")
-    app_key:str = Field(..., env="APP_KEY")
-    url:str = Field(..., env="URL")
-    strict_match:str = Field(..., env="STRICT_MATCH")
+    accept: str = Field(..., env="ACCEPT")
+    app_id: str = Field(..., env="APP_ID")
+    app_key: str = Field(..., env="APP_KEY")
+    url: str = Field(..., env="URL")
+    strict_match: str = Field(..., env="STRICT_MATCH")
 
     def __str__(self):
         return self.accept + '\n' + self.app_id + '\n' + self.app_key + '\n' + self.url + '\n'
@@ -73,10 +75,6 @@ class FileLoader():
                 word_props = json.load(f)
 
             return word_props, words
-
-
-if __name__ == '__main__':
-    print(FileLoader.load_files('Similarities'))
 
 
 

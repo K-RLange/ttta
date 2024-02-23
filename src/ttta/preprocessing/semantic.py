@@ -4,30 +4,27 @@ import json
 from typing import Dict
 from itertools import chain
 import re
-from src.ttta.diachronic_embeddings.utils.settings import OxfordAPISettings
-from src.ttta.diachronic_embeddings.utils.components import OxfordAPIResponse
+from .settings import OxfordAPISettings
+from .schemas import OxfordAPIResponse
 import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level='INFO')
 
 
 class OxfordDictAPI:
     """
     Wrapper class for the Oxford Dictionary API. It retrieves the senses and examples for a given word.
-
-    Attributes:
-    ----------
-        word_id: str
-            The word we want the examples for
     """
     def __init__(
             self,
-            word_id: str
+            word_id: str,
     ):
         if not isinstance(word_id, str):
             raise ValueError(
                 f'Expected word_id to be a string, but got {type(word_id)}'
             )
 
-        self.loggig = logging.basicConfig(level='INFO')
         self.api_creds = OxfordAPISettings()
         self.word = word_id
         self.query = ('entries', 'sentences')
@@ -52,7 +49,8 @@ class OxfordDictAPI:
         self.senses = []
         self.oxford_word = {}
 
-    def _load_into_json(self, res: Response) -> Dict:
+    @staticmethod
+    def _load_into_json(res: Response) -> Dict:
         """
         Load the request into json usable object
         Args:
@@ -69,8 +67,8 @@ class OxfordDictAPI:
         json_output = json.dumps(res.json())
         return json.loads(json_output)
 
-
-    def _preprocessing(self, sentence:str, main_word:str) -> str:
+    @staticmethod
+    def _preprocessing(sentence: str, main_word: str) -> str:
         """
         Search the sentence given and change the main word into its stem
         Args:
@@ -141,7 +139,8 @@ class OxfordDictAPI:
 
                             sense_with_examples['id'] = sens['id']
                             sense_with_examples['definition'] = sens['definitions'][0]
-                            examples_for_senses = list(self._preprocessing(ex['text'], self.word) for ex in sens['examples'])
+                            examples_for_senses = list(
+                                self._preprocessing(ex['text'], self.word) for ex in sens['examples'])
 
                             if sens['id'] in list(sense_ids):
                                 examples_sense = search(sens['id'])
@@ -174,20 +173,5 @@ class OxfordDictAPI:
         return self.oxford_word
 
 
-
 if __name__ == '__main__':
     print(OxfordDictAPI('struggle').get_senses())
-
-    
-    
-
-    
-    
-    
-    
-
-
-
-
-
-    

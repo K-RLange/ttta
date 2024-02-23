@@ -4,9 +4,9 @@ import os
 import time
 import logging
 from typing import List, Dict
-from src.ttta.diachronic_embeddings.api.api_call import OxfordDictAPI
-from src.ttta.diachronic_embeddings.utils.settings import EmbeddingFiles
-from components import Words
+from ttta.preprocessing.semantic import OxfordDictAPI
+from ttta.preprocessing.settings import EmbeddingFiles
+from ttta.preprocessing.schemas import Words
 from pydantic import parse_obj_as
 
 
