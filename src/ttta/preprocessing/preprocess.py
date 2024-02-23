@@ -1,13 +1,14 @@
 import os
 from glob import glob
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import numpy as np
 from scipy.sparse import lil_matrix, hstack, vstack
 import itertools
 from collections import Counter
-from utils.utils import *
+from .utils.utils import *
 import re
 from nltk.corpus import stopwords
+from scipy.sparse import csr_matrix, find
 from nltk.stem import WordNetLemmatizer
 lemma = WordNetLemmatizer()
 stop = stopwords.words("english")  # We use english texts
@@ -157,6 +158,36 @@ def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, del
         dtm = updated_dtm.tocsr()
     return dtm, vocab, deleted_indices
 
+def get_word_and_doc_vector(dtm: Union[csr_matrix, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Turns a document-term matrix into index vectors. The word vector contains the vocabulary index for each word
+    occurrence including multiple occurrences in one text. The document vector contains the document index for each
+    word occurrence including multiple occurrences in one document.
+    Args:
+        dtm: document-term matrix
+    Returns:
+        word_vec: word vector
+        doc_vec: document vector
+    """
+    if not isinstance(dtm, csr_matrix) or isinstance(dtm, np.ndarray):
+        try:
+            dtm = np.array(dtm)
+            if len(dtm.shape) == 0:
+                raise ValueError
+        except ValueError:
+            raise TypeError("dtm must be a numpy array!")
+    if dtm.shape[0] == 0 or dtm.shape[1] == 0:
+        raise ValueError("dtm must not be empty!")
+    (row_nonzero, column_nonzero) = dtm.nonzero()
+    _, _, value_list = find(dtm)
+    value_list = value_list.astype(int)
+
+    word_vec = []
+    doc_vec = []
+    for i, elem in enumerate(row_nonzero):
+        word_vec += [column_nonzero[i]] * value_list[i]
+        doc_vec += [elem] * value_list[i]
+    return np.array(word_vec, dtype=np.uint64), np.array(doc_vec, dtype=np.uint64)
 
 
 if __name__ == '__main__':

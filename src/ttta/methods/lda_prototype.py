@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from scipy.spatial.distance import cosine
 from wordcloud import WordCloud
-from scipy.sparse import csr_matrix, find, lil_matrix, hstack, vstack
+from scipy.sparse import csr_matrix
 from .LDA.lda_gibbs import vanilla_gibbs_func, load_wk_mat_func, final_assignment_func, load_dk_mat_func
 from typing import Union, List, Tuple, Callable, Set
 from collections import Counter
@@ -23,7 +23,7 @@ from itertools import chain
 from joblib import Parallel, delayed
 from matplotlib.backends.backend_pdf import PdfPages
 from .topic_matching import TopicClusters
-from ..preprocessing.preprocess import create_dtm
+from ..preprocessing.preprocess import create_dtm, get_word_and_doc_vector
 faulthandler.enable()
 
 
@@ -194,25 +194,7 @@ class LDAPrototype:
             word_vec: word vector
             doc_vec: document vector
         """
-        if not isinstance(dtm, csr_matrix) or isinstance(dtm, np.ndarray):
-            try:
-                dtm = np.array(dtm)
-                if len(dtm.shape) == 0:
-                    raise ValueError
-            except ValueError:
-                raise TypeError("dtm must be a numpy array!")
-        if dtm.shape[0] == 0 or dtm.shape[1] == 0:
-            raise ValueError("dtm must not be empty!")
-        (row_nonzero, column_nonzero) = dtm.nonzero()
-        _, _, value_list = find(dtm)
-        value_list = value_list.astype(int)
-
-        word_vec = []
-        doc_vec = []
-        for i, elem in enumerate(row_nonzero):
-            word_vec += [column_nonzero[i]] * value_list[i]
-            doc_vec += [elem] * value_list[i]
-        return np.array(word_vec, dtype=np.uint64), np.array(doc_vec, dtype=np.uint64)
+        return get_word_and_doc_vector(dtm)
 
     def fit(self, texts: List[List[str]], epochs: int = 200, first_chunk: bool = True,
             chunk_end: int = None, memory_start: int = 0, workers=1) -> None:
