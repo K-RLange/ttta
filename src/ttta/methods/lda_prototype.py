@@ -446,7 +446,8 @@ class LDAPrototype:
         load_dk_mat_func(doc_vec, assignment_vec, document_topic_matrix, self._K)
         return document_topic_matrix.copy()
 
-    def top_words(self, number: int = 5, topic: int = None, importance: Union[bool, np.ndarray] = True, word_topic_matrix: np.ndarray = None) -> Union[List[str], List[List[str]]]:
+    def top_words(self, number: int = 5, topic: int = None, importance: Union[bool, np.ndarray] = True,
+                  word_topic_matrix: np.ndarray = None, return_as_data_frame: bool = True) -> Union[List[str], List[List[str]], pd.DataFrame]:
         """
         Get the top words for a topic
         Args:
@@ -455,6 +456,7 @@ class LDAPrototype:
             importance: bool: should the importance or absolute frequency be used to determine the top words
                         np.array: importance of words for each topic
             word_topic_matrix: word-topic matrix
+            return_as_data_frame: should the result be returned as a pandas DataFrame (Default) or a list?
         Returns:
             top_words: top words
         """
@@ -480,11 +482,17 @@ class LDAPrototype:
         if word_topic_matrix is not None and not isinstance(word_topic_matrix, np.ndarray):
             raise TypeError("word_topic_matrix must be a numpy array!")
         if word_topic_matrix is None:
-            word_topic_matrix = self.get_word_topic_matrix(self._word_vec, self._assignments)
+            if self._is_trained:
+                word_topic_matrix = self.get_word_topic_matrix(self._word_vec, self._assignments)
+            else:
+                raise AttributeError("word_topic_matrix must be provided if the model has not been trained yet!")
         if isinstance(importance, bool) and importance:
             importance = self._calculate_importance(word_topic_matrix) if importance else None
         if topic is None:
-            return [self.top_words(number, k, importance, word_topic_matrix) for k in range(1, self._K + 1)]
+            top_words = [self.top_words(number, k, importance, word_topic_matrix) for k in range(1, self._K + 1)]
+            if return_as_data_frame:
+                top_words = pd.DataFrame(np.asarray(top_words).transpose(), columns=[f"Topic {k}" for k in range(len(top_words))])
+            return top_words
         else:
             if isinstance(importance, np.ndarray):
                 return [self._vocab[index] for index in np.argsort(-importance[topic - 1, :])[:number]]

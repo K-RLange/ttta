@@ -90,7 +90,7 @@ class TopicalChanges:
                 None
         """
         matplotlib.use('TkAgg')
-        top = self._roll.top_words(chunk=None, number=3, importance=True)
+        top = self._roll.top_words(chunk=None, number=3, importance=True, return_as_data_frame=False)
         headers = [f"{k}: {', '.join(top[k])}" for k in range(self._roll._K)]
         similarities_observed = 1 - self._distances_observed[self._roll._warmup + 1:, :]
         similarities_simulated = 1 - self._distances_simulated[self._roll._warmup + 1:, :]

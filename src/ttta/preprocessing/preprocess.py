@@ -121,14 +121,14 @@ def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, del
             min_count = int(min_count)
         except ValueError:
             raise TypeError("min_count must be an integer!")
-    if deleted_indices is None:
+    if not deleted_indices:
         deleted_indices = []
-    if not isinstance(deleted_indices, list):
+    elif not isinstance(deleted_indices, list):
         raise TypeError("deleted_indices must be a list of integers!")
-    if not isinstance(deleted_indices[0], int):
+    elif not isinstance(deleted_indices[0], int) and not isinstance(deleted_indices[0], np.int64):
         raise TypeError("deleted_indices must be a list of integers!")
     if dtm is not None:
-        if not isinstance(dtm, np.ndarray):
+        if not isinstance(dtm, np.ndarray) and not isinstance(dtm, csr_matrix):
             raise TypeError("dtm must be a numpy array!")
 
     all_new_words_counted = Counter([word for doc in texts for word in doc])

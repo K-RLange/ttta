@@ -3,6 +3,7 @@ wordclouds/
 test.py
 topwords_flda.py
 filtered_imdb.csv
+results/
 *.pickle
 *.pkl
 *.com

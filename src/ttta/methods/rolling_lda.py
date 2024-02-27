@@ -146,15 +146,19 @@ class RollingLDA:
         texts[date_column] = pd.to_datetime(texts[date_column])
         texts.sort_values(by=date_column, inplace=True)
         self.chunk_indices = self._get_time_indices(texts)
-        self.lda.fit(texts[text_column], epochs=self._initial_epochs,
-                     chunk_end=self.chunk_indices.iloc[self._warmup + 1]["chunk_start"], memory_start=0, workers=workers)
-        iterator = self.chunk_indices.iloc[self._warmup + 1:].iterrows()
+        if len(self.chunk_indices) < self._warmup + 1:
+            raise ValueError(f"The number of chunks in the data must be larger than warmup!")
+        iterator = self.chunk_indices.iloc[self._warmup:].iterrows()
         if self._verbose > 0:
             iterator = tqdm(iterator, unit="chunk")
         for i, row in iterator:
             if self._verbose and i < len(self.chunk_indices) - 1:
-                iterator.set_description(f"Processing {self.chunk_indices.iloc[i + 1]['chunk_start'] - 1 - self.chunk_indices.iloc[i]['chunk_start']} documents in "
-                                         f"chunk {self.chunk_indices.iloc[i]['date'].strftime('%Y-%m-%d')}")
+                iterator.set_description(f"Processing {int(self.chunk_indices.iloc[i + 1]['chunk_start'] - 1 - self.chunk_indices.iloc[i]['chunk_start'])} documents in "
+                                         f"chunk {self.chunk_indices.iloc[i][date_column].strftime('%Y-%m-%d')}")
+            if i == self._warmup:  # fit warmup chunks
+                self.lda.fit(texts[text_column], epochs=self._initial_epochs,
+                             chunk_end=self.chunk_indices.iloc[self._warmup + 1]["chunk_start"], memory_start=0, workers=workers)
+                continue
             end = len(texts) if i + 1 >= len(self.chunk_indices) else self.chunk_indices.iloc[i + 1]["chunk_start"] - 1
             self.lda.fit(texts[text_column], epochs=self._subsequent_epochs, first_chunk=False, chunk_end=end, memory_start=row["memory_start"], workers=workers)
         self.chunk_indices["chunk_start_preprocessed"] = [sum([x < y for x in self.lda._deleted_indices]) for y in self.chunk_indices["chunk_start"]]
@@ -224,7 +228,8 @@ class RollingLDA:
         self._last_text["index"] += len(texts)
         self.chunk_indices["chunk_start_preprocessed"] = [sum([x < y for x in self.lda._deleted_indices]) for y in self.chunk_indices["chunk_start"]]
 
-    def top_words(self, chunk: Union[int, str] = None, topic: int = None, number: int = 5, importance: bool = True) -> Union[List[str], List[List[str]]]:
+    def top_words(self, chunk: Union[int, str] = None, topic: int = None, number: int = 5, importance: bool = True,
+                  return_as_data_frame: bool = True) -> Union[List[str], List[List[str]]]:
         """
             Returns the top words for the given chunk and topic.
             Args:
@@ -233,7 +238,7 @@ class RollingLDA:
                 topic: The topic for which the top words should be returned. If None, the top words for all topics are returned.
                 number: The number of top words to return.
                 importance: Whether the words should be weighted based on their importance to a topic or their absolute frequency.
-
+                return_as_data_frame: Whether the top words should be returned as a pandas DataFrame.
         """
         if not isinstance(chunk, int) and chunk is not None and chunk != "all":
             try:
@@ -258,12 +263,18 @@ class RollingLDA:
 
         if chunk is None:
             word_topic_matrix = self.get_word_topic_matrix()
-            return self.lda.top_words(number=number, topic=topic, importance=importance, word_topic_matrix=word_topic_matrix)
+            return self.lda.top_words(number=number, topic=topic, importance=importance, word_topic_matrix=word_topic_matrix,
+                                      return_as_data_frame=return_as_data_frame)
         elif chunk == "all":
-            return [self.top_words(chunk=i, number=number, importance=importance) for i in range(len(self.chunk_indices))]
+            top_words = [self.top_words(chunk=i, number=number, importance=importance, return_as_data_frame=return_as_data_frame) for i in range(len(self.chunk_indices))]
+            if return_as_data_frame:
+                top_words = pd.concat(top_words)
+                top_words.set_index([f"Chunk {i+1}, word {x+1}" for i in range(len(self.chunk_indices)) for x in range(number)], inplace=True)
+            return top_words
         else:
             word_topic_matrix = self.get_word_topic_matrix(chunk)
-            return self.lda.top_words(number=number, topic=topic, importance=importance, word_topic_matrix=word_topic_matrix)
+            return self.lda.top_words(number=number, topic=topic, importance=importance, word_topic_matrix=word_topic_matrix,
+                                      return_as_data_frame=return_as_data_frame)
 
     def get_word_topic_matrix(self, chunk: int = None) -> np.ndarray:
         """
