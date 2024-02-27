@@ -1,13 +1,12 @@
-
-from pydantic import BaseModel, validator, Field
+from pydantic import BaseModel, field_validator
 from typing import List, Optional
-import numpy as np
 from dataclasses import dataclass
 
+
 class OxfordAPIResponse(BaseModel):
-    id:str = None
-    definition:str = None
-    examples:Optional[List[str]] = None
+    id: str = None
+    definition: str = None
+    examples: Optional[List[str]] = None
 
     class Config:
         allow_population_by_field_name = True
@@ -19,7 +18,7 @@ class OxfordAPIResponse(BaseModel):
 
         return self
 
-    @validator('examples')
+    @field_validator('examples')
     def min_len_examples(cls, v):
         if not len(v) >= 1:
             raise ValueError(
@@ -27,24 +26,26 @@ class OxfordAPIResponse(BaseModel):
             )
         return v[:10]
 
+
 @dataclass(init=True, frozen=True, repr=True)
 class Words:
-    word:str
-    senses:List[OxfordAPIResponse]
+    word: str
+    senses: List[OxfordAPIResponse]
 
 
 class WordSimilarities(BaseModel):
-    word:str
-    year:int
-    sense_ids:List[str]
-    props:List[float]
+    word: str
+    year: int
+    sense_ids: List[str]
+    props: List[float]
+
 
 class WordFitted(BaseModel):
-    word:str
-    sense:str
-    years:List[int]
-    props:List[float]
-    poly_fit:List[float]
+    word: str
+    sense: str
+    years: List[int]
+    props: List[float]
+    poly_fit: List[float]
 
 
 class SenseEmbedding(BaseModel):
@@ -69,10 +70,12 @@ class WordSenseEmbedding:
     definition: str
     embedding: List[float]
 
+
 @dataclass(init=True, frozen=True, repr=True)
 class SenseEmbedding:
-    word:str
-    senses:List[WordSenseEmbedding]
+    word: str
+    senses: List[WordSenseEmbedding]
+
 
 class Embedding(BaseModel):
     word: str = None

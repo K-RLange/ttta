@@ -4,8 +4,8 @@ import torch
 from pathlib import Path
 from transformers import BertTokenizer, BertModel
 from transformers import logging as lg
-from src.ttta.diachronic_embeddings.utils.components import OxfordAPIResponse, WordSenseEmbedding
-from src.ttta.diachronic_embeddings.utils.settings import FileLoader
+from ttta.preprocessing.schemas import OxfordAPIResponse, WordSenseEmbedding
+from ttta.preprocessing.settings import FileLoader
 import logging
 from typing import Union
 
@@ -23,7 +23,7 @@ class VectorEmbeddings:
     """
     def __init__(
         self,
-        pretrained_model_path:Union[str, Path] = None,
+        pretrained_model_path: Union[str, Path] = None,
     ):
         self.model_path = pretrained_model_path
         if pretrained_model_path is not None:
@@ -94,7 +94,7 @@ class VectorEmbeddings:
             )
 
 
-class ExtractSenseEmbeddings():
+class ExtractSenseEmbeddings:
     """
     Wrapper class for the Vector embeddings that is used to extract the embeddings for all the senses.
 
@@ -192,8 +192,3 @@ class ExtractSenseEmbeddings():
             all_embeddings += [word_embedding.copy()]
 
         return all_embeddings
-
-
-
-if __name__ == '__main__':
-    pass
