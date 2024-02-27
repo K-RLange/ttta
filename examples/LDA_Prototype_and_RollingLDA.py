@@ -22,8 +22,8 @@ df["text"] = preprocess(df["text"])
 # minimum threshold of 5 (absolute) and 0.002 (relative) for topic matching in the prototype step.
 lda = LDAPrototype(10, prototype=10, topic_threshold=[3, 0.001], verbose=1)
 # verbose can be set to 0 for no output or 2 for more output
-# lda.fit(df["text"], epochs=300)
-# print(lda.top_words(10))
+lda.fit(df["text"], epochs=300)
+print(lda.top_words(10))
 
 # -----------------------------RollingLDA-----------------------------
 # print(help(RollingLDA))
