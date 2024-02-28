@@ -10,27 +10,10 @@ import numpy.typing as npt
 from objectives import poisson_log_likelihood, poisson_log_likelihood_parameterized
 from scipy.optimize import minimize
 from ..preprocessing.preprocess import create_dtm
+from .structures import PoissonReducedRankParameters
 
 
 class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
-
-    class PoissonReducedRankParameters(NamedTuple):
-        """Parameter class used for storing the parameters of the poisson reduced rank model.
-        Given a tdm of dimensions (J_tokens, L_documents), the dimensions of the other values are described as follows
-        alpha has dimensions (J_tokens,)
-        beta has dimensions (L_documents,)
-        b has dimensions (J_tokens, K) with K being equal to the dimensions of the political space
-        f has diemensions (K, L_documents) with K being equal to the dimensions of the political space
-        """
-
-        logged_dtm: np.ndarray
-        alpha: npt.NDArray[np.float32]
-        beta: npt.NDArray[np.float32]
-        b: np.ndarray
-        f: np.ndarray
-        svd_u: np.ndarray
-        svd_v: np.ndarray
-        svd_s: np.ndarray
 
     def __init__(self, K=2):
         self.k = K
@@ -246,7 +229,7 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
             )
             update_f_and_beta = self._update_f_and_beta(X, model_params)
 
-            updated_params = self.PoissonReducedRankParameters(
+            updated_params = PoissonReducedRankParameters(
                 logged_dtm=model_params.logged_dtm,
                 svd_s=model_params.svd_s,
                 svd_u=model_params.svd_u,
@@ -307,7 +290,7 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
         # f_k corresponds to the k-th column
         f = np.multiply(np.sqrt(self._L_documents), v)
 
-        return self.PoissonReducedRankParameters(
+        return PoissonReducedRankParameters(
             logged_dtm=centered_theta,
             alpha=alpha,
             beta=beta,
@@ -347,7 +330,7 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
             new_f[:, i_col] = update_f_and_beta_result.x[1:]
             new_beta[i_col] = update_f_and_beta_result.x[0]
 
-        return self.PoissonReducedRankParameters(
+        return PoissonReducedRankParameters(
             logged_dtm=model_params.logged_dtm,
             alpha=model_params.alpha,
             b=model_params.b,
@@ -386,7 +369,7 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
             new_b[j_token, :] = update_b_and_alpha_result.x[1:]
             new_alpha[j_token] = update_b_and_alpha_result.x[0]
 
-        new_params = self.PoissonReducedRankParameters(
+        new_params = PoissonReducedRankParameters(
             logged_dtm=model_params.logged_dtm,
             alpha=new_alpha,
             b=new_b,
@@ -510,7 +493,7 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
         # f_k corresponds to the k-th column
         f = np.multiply(np.sqrt(self._L_documents), v)
 
-        return self.PoissonReducedRankParameters(
+        return PoissonReducedRankParameters(
             logged_dtm=theta,
             alpha=alpha,
             beta=beta,
