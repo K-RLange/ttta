@@ -77,20 +77,22 @@ class TopicClusters:
             index of the prototype in the list of word-topic matrices
         """
         word_topic_matrices = np.vstack([x.transpose() for x in word_topic_matrices])
-        threshold_dict, faulty_indices = self._check_topic_thresholds(word_topic_matrices) if measure == "jaccard" else (None, set())
-        if len(faulty_indices) == self._number_of_models:
-            warnings.warn(f"All models are faulty. This can happen when there are too few documents to "
-                          f"properly train the LDA. The assignments for this time chunk will be randomly sampled.")
+        threshold_dict, broken_indices = self._check_topic_thresholds(word_topic_matrices) if measure == "jaccard" else (None, set())
+        if len(broken_indices) == self._number_of_models:
+            warnings.warn(f"All models are broken. This can happen when there are too few documents to "
+                          f"properly train the LDA or the words occur not often enough to satisfy the topic_threshold. Please consider"
+                          f"lowering the values in topic_threshold. The assignments will be randomly sampled.")
             return None
-        elif len(faulty_indices) > 0:
-            warnings.warn(f"Encountered {len(faulty_indices)} faulty models. This can happen when there are too few "
+        elif len(broken_indices) > 0:
+            warnings.warn(f"Encountered {len(broken_indices)} broken models. This can happen when there are too few "
                           f"documents to properly train the LDA or the 'topic_threshold'-parameter has been set too "
-                          f"restrictively. The faulty models will be ignored for the prototype selection.")
+                          f"restrictively. Please consider lowering the values in topic_threshold. "
+                          f"The broken models will be ignored for the prototype selection.")
         sclops = [[] for _ in range(self._number_of_models)]
         matched_topics = None
         for i in range(self._number_of_models - 1):
             for j in range(i + 1, self._number_of_models):
-                if i in faulty_indices or j in faulty_indices:
+                if i in broken_indices or j in broken_indices:
                     sclops[i].append(-1)
                     sclops[j].append(-1)
                     continue
@@ -111,16 +113,16 @@ class TopicClusters:
             word_topic_matrices: list of word-topic matrices
         Returns:
             threshold_dict: dictionary containing the indices of the words that occur more than the threshold in a topic
-            faulty_models: Index of all faulty models that are to be ignored, because they store all words into one topic
+            broken_models: Index of all broken models that are to be ignored, because they store all words into one topic
                            (happens rarely when there are too few documents).
         """
         row_sums = np.sum(word_topic_matrices, axis=1)
         row_sums = np.where(row_sums < 1, 1, row_sums)
-        vk_thresholds = np.argwhere((word_topic_matrices > self._threshold[0]) & (word_topic_matrices / row_sums[:, None] >= self._threshold[1]))
+        vk_thresholds = np.argwhere((word_topic_matrices >= self._threshold[0]) & (word_topic_matrices / row_sums[:, None] >= self._threshold[1]))
         threshold_dict = {x: list(set(vk_thresholds[np.argwhere(vk_thresholds[:, 0] == x).flatten(), 1])) for x in range(self._number_of_models * self._K)}
         zero_indices = np.array([key for key, value in threshold_dict.items() if len(value) == 0])
-        faulty_models = set([floor(index / self._K) for index in zero_indices])
-        return threshold_dict, faulty_models
+        broken_models = set([floor(index / self._K) for index in zero_indices])
+        return threshold_dict, broken_models
 
     def _cluster_topics(self, i: int, j: int, measure: Union[str, callable], threshold_dict: dict) -> Tuple[pd.DataFrame, float]:
         """
