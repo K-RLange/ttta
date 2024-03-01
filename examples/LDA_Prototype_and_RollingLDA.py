@@ -1,17 +1,23 @@
+# This example usage shows you, how you can create consistent LDAs using LDAPrototype and how to create
+# time-consistent LDAs using RollingLDA. It also includes a change detection method.
+# The data used here is a sample of the SpeakGer dataset, which contains speeches from German federal state parliaments
+# as well as the German Bundestag
+
 import pandas as pd
 import nltk
+from datasets import load_dataset
+df = load_dataset("K-RLange/SpeakGer_sample")
+df = df["train"].to_pandas()
+df = df[df["State"] == "Nordrhein-Westfalen"]
 nltk.download('stopwords')
-nltk.download('twitter_samples')
-from nltk.corpus import twitter_samples
 from ttta.methods.lda_prototype import LDAPrototype
 from ttta.methods.rolling_lda import RollingLDA
 from ttta.methods.topical_changes import TopicalChanges
 from ttta.preprocessing.preprocess import preprocess
 
 # Preprocessing for toy examples
-df = pd.DataFrame(twitter_samples.docs())[["text", "created_at"]]
-df["created_at"] = pd.to_datetime(df["created_at"])
-df["text"] = preprocess(df["text"])
+df["Date"] = pd.to_datetime(df["Date"], format="mixed")
+df["Speech"] = preprocess(df["Speech"], language="german")
 # The texts must be preprocessed into a list of lists of words. The preprocess-function can be replaced by any
 # arbitrary preprocessing function that includes tokenization.
 # ----------------------------LDAPrototype----------------------------
@@ -22,7 +28,7 @@ df["text"] = preprocess(df["text"])
 # minimum threshold of 5 (absolute) and 0.002 (relative) for topic matching in the prototype step.
 lda = LDAPrototype(10, prototype=10, topic_threshold=[3, 0.001], verbose=1)
 # verbose can be set to 0 for no output or 2 for more output
-lda.fit(df["text"], epochs=300)
+lda.fit(df["Speech"], epochs=200)
 print(lda.top_words(10))
 
 # -----------------------------RollingLDA-----------------------------
@@ -32,12 +38,12 @@ print(lda.top_words(10))
 # In __init__, a distinction is made between "initial_epochs" and "subsequent_epochs" if the initial
 # fit should have more epochs. Another important parameter is "how", which specifies the type of separation of the data into time chunks.
 # This can either be a list of datetime objects or a string indicating the chunk intervals. "2W" stands for 2 weeks and 30Min for 30 Minutes,
-# for example. If there are too few data in a chunk (less than min_docs_per_chunk, default 10 * K), then chunks are merged.
+# for example. If there are too few data in a chunk (less than _min_docs_per_chunk, default 10 * K), then chunks are merged.
 # The fit method expects a pandas DataFrame as input, whose relevant text and date columns can be customized.
 
-roll = RollingLDA(10, prototype=10, topic_threshold=[2, 0.001], initial_epochs=300, subsequent_epochs=150, memory=2,
-                  warmup=3, how="30Min")
-roll.fit(df, text_column="text", date_column="created_at")
+roll = RollingLDA(10, prototype=10, topic_threshold=[3, 0.001], initial_epochs=300, subsequent_epochs=150, memory=2,
+                  warmup=2, how="1M")
+roll.fit(df, text_column="Speech", date_column="Date")
 # The top words from individual chunks can be obtained...
 print(roll.top_words(0))
 print(roll.top_words(2))
