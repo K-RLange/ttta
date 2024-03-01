@@ -532,7 +532,9 @@ class LDAPrototype:
         if not isinstance(word_topic_matrix, np.ndarray):
             raise TypeError("word_topic_matrix must be a numpy array!")
         word_topic_matrix = word_topic_matrix.transpose()
-        importance = word_topic_matrix / np.sum(word_topic_matrix, axis=1)[:, np.newaxis]
+        denominator = np.sum(word_topic_matrix, axis=1)[:, np.newaxis]
+        denominator[denominator == 0] = 1
+        importance = word_topic_matrix / denominator
         log_importance = np.log(importance + 1e-5)
         importance = importance * (log_importance - np.mean(log_importance, axis=0)[np.newaxis, :])
         return importance
@@ -605,6 +607,9 @@ class LDAPrototype:
             word_weights = [{self._vocab[index]: importance[topic, index] for index in np.argsort(-importance[topic, :])[:number]}]
         figures = []
         for i, cloud in enumerate(word_weights):
+            if sum(cloud.values()) == 0:
+                warnings.warn(f"Topic {i + 1} has no words! This might happen if there are too few words in the corpus, compared to the number of topics!")
+                continue
             wordcloud = WordCloud(width=width, height=height, background_color='white').generate_from_frequencies(cloud)
             fig = plt.figure(figsize=(15, 15 * height / width), dpi=150)
             plt.imshow(wordcloud, interpolation='bilinear')
