@@ -333,4 +333,3 @@ class TestRollingLDA(unittest.TestCase):
             roll.wordclouds(show=1.5)
         with self.assertRaises(TypeError):
             roll.wordclouds([0.5])
-    shutil.rmtree('wordclouds')
