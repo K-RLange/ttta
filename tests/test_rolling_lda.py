@@ -36,7 +36,7 @@ class TestRollingLDA(unittest.TestCase):
                       pd.to_datetime("2021-01-07")] * 3
         self.df = pd.DataFrame({"text": self.texts, "date": self.dates})
         self.df.sort_values("date", inplace=True)
-        self.roll = roll = RollingLDA(10.0, prototype=5.0, how="1D", warmup=1.0, min_docs_per_chunk=5.0, verbose=2.0,
+        self.roll = RollingLDA(10.0, prototype=5.0, how="1D", warmup=1.0, min_docs_per_chunk=5.0, verbose=2.0,
                           topic_threshold=[3.0, 0.0], initial_epochs=200.0, subsequent_epochs=100.0,
                           memory=2.0, alpha=0.05, gamma=0.05, min_count=1.0, max_assign=True, prototype_measure="cosine")
 
