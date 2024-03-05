@@ -43,7 +43,10 @@ class TopicalChanges:
             raise ValueError("mixture must be a float between 0 and 1!")
         if not isinstance(reference_period, int):
             try:
-                reference_period = int(reference_period)
+                if reference_period == int(reference_period):
+                    reference_period = int(reference_period)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("reference_period must be an integer!")
         if reference_period < 1:
@@ -57,18 +60,16 @@ class TopicalChanges:
             raise ValueError("quantile_threshold must be a float between 0 and 1!")
         if not isinstance(samples, int):
             try:
-                samples = int(samples)
+                if samples == int(samples):
+                    samples = int(samples)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("samples must be an integer!")
         if samples < 1:
             raise ValueError("samples must be a natural number greater than 0!")
-        if not isinstance(save_path, str) and save_path is not None or not isinstance(load_path, str) and load_path is not None:
-            raise TypeError("save_path and load_path must be string or None!")
         if not isinstance(fast, bool):
-            try:
-                fast = bool(fast)
-            except ValueError:
-                raise TypeError("fast must be a boolean!")
+            raise TypeError("fast must be a boolean!")
         if not isinstance(roll, RollingLDA):
             raise TypeError("roll must be a RollingLDA object!")
 
@@ -89,6 +90,9 @@ class TopicalChanges:
             Returns:
                 None
         """
+        if len([np.argwhere(self._distances_simulated.transpose()[x] < self._distances_observed.transpose()[x]).transpose(1, 0)[0].tolist() for x in
+                          range(len(self._distances_simulated.transpose()))]) < 1:
+            raise ValueError("No change points detected!")
         matplotlib.use('TkAgg')
         top = self._roll.top_words(chunk=None, number=3, importance=True, return_as_data_frame=False)
         headers = [f"{k}: {', '.join(top[k])}" for k in range(self._roll._K)]
@@ -96,7 +100,7 @@ class TopicalChanges:
         similarities_simulated = 1 - self._distances_simulated[self._roll._warmup + 1:, :]
         sns.set(style="darkgrid")
         if len(plot_args) == 0:
-            plot_args = {"nrows": math.floor(self._roll._K / 5), "ncols": 5, "figsize": (20, self._roll._K)}
+            plot_args = {"nrows": max(1, math.floor(self._roll._K / 5)), "ncols": 5, "figsize": (20, self._roll._K)}
         fig, axs = plt.subplots(**plot_args, sharex='col', sharey='row')
         axs = axs.flatten()
         for i in range(similarities_observed.shape[1]):
@@ -129,7 +133,10 @@ class TopicalChanges:
         """
         if not isinstance(number, int):
             try:
-                number = int(number)
+                if number == int(number):
+                    number = int(number)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("number must be an integer!")
         if number < 1:
@@ -137,10 +144,7 @@ class TopicalChanges:
         if not isinstance(date_format, str):
             raise TypeError("date_format must be a string!")
         if not isinstance(fast, bool):
-            try:
-                fast = bool(fast)
-            except ValueError:
-                raise TypeError("fast must be a boolean!")
+            raise TypeError("fast must be a boolean!")
 
         assignments = np.array([self._roll.get_word_topic_matrix(chunk=chunk).transpose() for chunk, row in self._roll.chunk_indices.iterrows()])
         topics = assignments.transpose((1, 2, 0))
@@ -173,7 +177,7 @@ class TopicalChanges:
             Returns:
                 The distances between the observed and simulated topic proportions.
         """
-        if not isinstance(save_path, str) and save_path is not None or not isinstance(load_path, str) and load_path is not None:
+        if (not isinstance(save_path, str) and save_path is not None) or (not isinstance(load_path, str) and load_path is not None):
             raise TypeError("save_path and load_path must be string or None!")
         distances_simulated = np.zeros((len(self._roll.chunk_indices), self._roll._K))
         assignments = np.array([self._roll.get_word_topic_matrix(chunk=chunk).transpose() for chunk, row in self._roll.chunk_indices.iterrows()])
@@ -237,7 +241,10 @@ class TopicalChanges:
             raise TypeError("phi must be a numpy array!")
         if not isinstance(frequency, int):
             try:
-                frequency = int(frequency)
+                if frequency == int(frequency):
+                    frequency = int(frequency)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("frequency must be an integer!")
         if frequency < 1:

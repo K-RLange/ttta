@@ -60,6 +60,14 @@ class RollingLDA:
                     raise ValueError
             except ValueError:
                 raise TypeError("memory must be an integer!")
+        if not isinstance(K, int):
+            try:
+                if K == int(K):
+                    K = int(K)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("K must be an integer!")
         if memory < 1:
             raise ValueError("memory must be a natural number greater than 0")
         if not isinstance(initial_epochs, int):
