@@ -23,6 +23,8 @@ class TopicClusters:
             raise TypeError("word_topic_matrices must be a list!")
         if not isinstance(word_topic_matrices[0], np.ndarray):
             raise TypeError("word_topic_matrices must be a list of numpy arrays!")
+        if len(word_topic_matrices) < 2:
+            raise ValueError("word_topic_matrices must contain at least two word-topic matrices!")
         self._word_topic_matrices = word_topic_matrices
         if not isinstance(measure, str) and not callable(measure):
             raise TypeError("measure must be a string or a callable!")
@@ -31,11 +33,17 @@ class TopicClusters:
             topic_threshold = [5, 0.002]
         elif not isinstance(topic_threshold, list):
             raise TypeError("topic_threshold must be a list of an integer and a float!")
-        elif topic_threshold[0] < 0 or topic_threshold[1] < 0:
-            raise ValueError("topic_threshold must be a natural number greater than or equal to than 0")
+        elif topic_threshold[0] < 0 or topic_threshold[1] < 0 or topic_threshold[1] > 1:
+            raise ValueError("topic_threshold must contain a positive integer and a float between 0 and 1!")
         self._threshold = topic_threshold
         if not isinstance(K, int):
-            raise TypeError("K must be an integer!")
+            try:
+                if K == int(K):
+                    K = int(K)
+                else:
+                    raise ValueError
+            except:
+                raise TypeError("K must be an integer!")
         elif K < 2:
             raise ValueError("K must be a natural number greater than 1")
         self._K = K
@@ -141,6 +149,8 @@ class TopicClusters:
             raise TypeError("j must be an integer!")
         if not isinstance(threshold_dict, dict):
             raise TypeError("threshold_dict must be a dictionary!")
+        if not isinstance(measure, str) and not callable(measure):
+            raise TypeError("measure must be a string or a callable!")
         temp_mat = np.zeros((2 * self._K, self._vocab_length), dtype=int)
         if measure == "jaccard":
             for row in range(self._K):
