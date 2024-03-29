@@ -137,6 +137,24 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
             "f": self.f,
         }
 
+    def get_random_params(self) -> dict:
+        """Returns random parameters for the poisson reduced rank model with independent word weights
+
+        Returns:
+            dict: Dictionary containing the random paramters
+        """
+        return {
+            "K": self.k,
+            "alpha": np.random.rand(
+                self._J_tokens,
+            ),
+            "beta": np.random.rand(
+                self._L_documents,
+            ),
+            "b": np.random.rand(self._J_tokens, self.k),
+            "f": np.random.rand(self._L_documents, self.k),
+        }
+
     def set_params(self, **params) -> None:
         """sets the internal parameters of the poisson reduced rank model. The **params should contains 'alpha', 'beta', 'b' and 'f'. 'K' is not allowed, since it would change the whole metho due to the increase in dimensions.
         The dimensionalities are not checked, please make sure that the np.ndarrays are of the correct shape.
@@ -159,19 +177,13 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
         Args:
             path (Path): Path object to the given save location
         """
-        if path.is_file():
-            with open(path.absolute(), "wb") as f:
-                pickle.dump(self, f)
-        else:
-            raise TypeError("Path must contain a file")
+        with open(path.absolute(), "wb") as f:
+            pickle.dump(self, f)
 
     @staticmethod
     def load(path: Path) -> dict:
-        if path.is_file():
-            with open(path.absolute(), "rb") as f:
-                return pickle.load(f)
-        else:
-            raise TypeError("Path must contain a file")
+        with open(path.absolute(), "rb") as f:
+            return pickle.load(f)
 
     def fit(
         self,
