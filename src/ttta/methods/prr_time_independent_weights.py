@@ -7,7 +7,7 @@ import pickle
 from tqdm.autonotebook import trange, tqdm
 from typing import NamedTuple
 import numpy.typing as npt
-from objectives import poisson_log_likelihood, poisson_log_likelihood_parameterized
+from .objectives import poisson_log_likelihood, poisson_log_likelihood_parameterized
 from scipy.optimize import minimize
 from ..preprocessing.preprocess import create_dtm
 from .structures import PoissonReducedRankParameters
@@ -53,23 +53,23 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
                 "Column name given by individual_column must be present in data frame columns"
             )
         ## Data in the text_column is unpacked and sorted
-        data = texts.copy()
+        data: pd.DataFrame = texts.copy()
         data[date_column] = pd.to_datetime(data[date_column])
         data.sort_values([individual_column, date_column], inplace=True)
         # add missing document, time rows and fill rows with 0 of token matrix
-
-        ## create dtm from all given texts, since the create_dtm function takes a vocab, currently, all present strings are used as the vocab
         texts_list = sum(data[text_column].to_list(), [])
         vocab = list(dict.fromkeys(texts_list))
-        dtm_data = create_dtm(texts=texts_list, vocab=vocab)
+        ## create dtm from all given texts, since the create_dtm function takes a vocab, currently, all present strings are used as the vocab
+        dtm_data = create_dtm(texts=data.loc[:, text_column], vocab=vocab)
         dtm = dtm_data[0]  # extracts dtm matrix from result
         ## convert dtm to dataframe
-        df_dtm = pd.DataFrame(dtm)
+        df_dtm = pd.DataFrame(dtm.toarray())
         df_dtm.columns = [f"feature_{i}" for i in range(df_dtm.shape[1])]
-
+        df_dtm.set_index(
+            data.index, inplace=True
+        )  # reset index of the dtm_matrix to match it to the initial dataframe
         ## add dtm matrix columns to dataframe
         data = pd.concat([data, df_dtm], axis=1)
-
         ## add missing rows for (time, individual) dimension
         missing_rows_added = (
             data.set_index([individual_column, date_column])
@@ -200,7 +200,7 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
             raise ValueError("Dimensions K must be greater 0")
         if n_iter <= 0:
             raise ValueError("Number of iterations must be greater 0")
-
+        print("Converting Dataframe to dtm matrix...")
         ## convert the pandas dataframe to a dtm matrix
         X = self._df2dtm(
             texts=texts,
@@ -208,6 +208,7 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
             date_column=date_column,
             individual_column=individual_column,
         )  # X (npt.NDArray[np.int32]): array-like of shape (n_tokens, n_documents).
+        print("Conversion from Dataframe to dtm successful!")
 
         ## initialize basic dimensions from given data
         self._J_tokens, self._L_documents = X.shape[0], X.shape[1]
