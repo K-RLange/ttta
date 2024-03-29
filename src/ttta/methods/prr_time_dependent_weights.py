@@ -7,12 +7,12 @@ import pickle
 from tqdm.autonotebook import trange, tqdm
 from typing import NamedTuple
 import numpy.typing as npt
-from objectives import poisson_log_likelihood, poisson_log_likelihood_parameterized
+from .objectives import poisson_log_likelihood, poisson_log_likelihood_parameterized
 from scipy.optimize import minimize
 from ..preprocessing.preprocess import create_dtm
 from .prr_time_independent_weights import PoissonReducedRankTimeIndependentWordWeights
 from typing import Optional
-from structures import PoissonReducedRankParameters
+from .structures import PoissonReducedRankParameters
 
 
 class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
@@ -63,6 +63,8 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
                 raise ValueError("All roh values must be greater 0")
 
             self.hyp_roh = kwargs["roh"]
+        else:
+            self.hyp_roh = np.full((self.k,), 0.5)
 
         if "delta" in kwargs.keys():
             if isinstance(kwargs["delta"], np.ndarray) == False:
@@ -75,6 +77,36 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
                 raise ValueError("All delta values must be in the open interval (0,1)")
 
             self.hyp_delta = kwargs["delta"]
+        else:
+            self.hyp_delta = np.full((self.k,), 0.5)
+
+    @staticmethod
+    def calculate_IJT(
+        texts: pd.DataFrame,
+        text_column: str = "text",
+        date_column: str = "date",
+        individual_column: str = "individual",
+    ) -> dict:
+        """Calculates I, J, T for a given dataframe, which can be used for the model initialization.
+
+        Args:
+            texts (pd.DataFrame): Dataframe containing the data
+            text_column (str, optional): column name containing the texts. Defaults to "text".
+            date_column (str, optional): column name containing the date. Defaults to "date".
+            individual_column (str, optional): column name containing the individual. Defaults to "individual".
+
+        Returns:
+            dict: Dictionary with keys I, T, J
+        """
+        stats = {}
+        stats["I"] = len(texts.loc[:, individual_column].unique())
+        stats["T"] = len(texts.loc[:, date_column].unique())
+
+        texts_list = sum(texts[text_column].to_list(), [])
+        vocab = list(dict.fromkeys(texts_list))
+        stats["J"] = len(vocab)
+
+        return stats
 
     @staticmethod
     def _compute_roh1_matrix(
@@ -246,7 +278,9 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
         date_column: str = "date",
         individual_column: str = "individual",
         n_iter: int = 100,
+        train_params: dict = {"prrr_indep_niter": 5},
         tol: float = 1e5,
+        warm_start: Optional[PoissonReducedRankParameters] = None,
     ):
         """Fits a Poisson Reduced Rank model with time dependent word weigths to the given term-document-matrix (tdm). The optimization routine implemented in this paper is described in Jentsch et. al. 'Time-dependent Poisson reduced rank models for political text data analysis' section 2.3.
             For the unpenalized/unconstrained model, please see the class UnconstrainedPoissonReducedRankTimeDependentWordWeights.
@@ -259,19 +293,30 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
             individual_column (str): An id column, containing the ids (ints) of the individual. Defaults to "individual".
             n_iter (int, optional): Maximum number of iterations for the optimization of the model. Defaults to 100.
             tol (float, optional): Currently not implemented. Tolerance for no improvement. If the difference between the likelihoods of the previous and last iteration is smaller tol, the optimization is stopped. Defaults to 1e5.
+            train_params (dict): Additional parameters for the training process. prrr_indep_niter controlls the number of iterations for the independent word weights model used to as a starting point. prrr_indep_niter must be present.
         """
         # TODO: Implement possibility that parameters from previous model can be used.
         self.df = texts.copy()
 
-        # [S1] get initial values for the estimation
-        model = PoissonReducedRankTimeIndependentWordWeights(self.k)
+        if warm_start:
+            print("Using params from warm start...")
+            current_params = warm_start
+            model = PoissonReducedRankTimeIndependentWordWeights(self.k)
 
-        current_params = model.fit(
-            texts,
-            text_column=text_column,
-            date_column=date_column,
-            individual_column=individual_column,
-        )
+        else:
+            print("Calculate initial values for the estimation...")
+
+            # [S1] get initial values for the estimation
+            model = PoissonReducedRankTimeIndependentWordWeights(self.k)
+
+            current_params = model.fit(
+                texts,
+                text_column=text_column,
+                date_column=date_column,
+                individual_column=individual_column,
+                n_iter=train_params["prrr_indep_niter"],
+            )
+
         self.X = model._df2dtm(
             texts,
             text_column=text_column,
@@ -281,6 +326,7 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
 
         self.params_start_model = current_params
 
+        print("Convert initial parameters to right dimensions")
         # convert the parameters from the poisson reduced rank model to the params of this models.
         # In particular f must be reshaped and the parameters b_j must be duplicated for all time points t.
         self._convert_params_2Dto3D(
@@ -298,6 +344,7 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
             self.hyp_roh, self.hyp_delta, current_params.b
         )
 
+        print("Optimize model...")
         # [S2] Repeat (i) - (v) below until a convergence criterion is met for steps m=1,....,M
         for i in trange(n_iter):
             # (i) set current params from the intial estimation (ommitted here, just use current_params)
@@ -461,19 +508,14 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
         Args:
             path (Path): Path object to the given save location
         """
-        if path.is_file():
-            with open(path.absolute(), "wb") as f:
-                pickle.dump(self, f)
-        else:
-            raise TypeError("Path must contain a file")
+        with open(path.absolute(), "wb") as f:
+            pickle.dump(self, f)
 
     @staticmethod
     def load(path: Path) -> dict:
-        if path.is_file():
-            with open(path.absolute(), "rb") as f:
-                return pickle.load(f)
-        else:
-            raise TypeError("Path must contain a file")
+
+        with open(path.absolute(), "rb") as f:
+            return pickle.load(f)
 
     def fit_update(self):
         raise NotImplementedError
