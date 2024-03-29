@@ -1,26 +1,16 @@
-import itertools
-import os
 import pickle
 import warnings
 from multiprocessing.pool import ThreadPool as Pool
-from math import floor
 import faulthandler
 import matplotlib
 from matplotlib import pyplot as plt
-from scipy.cluster.hierarchy import linkage
 import numpy as np
 import pandas as pd
-from scipy.spatial.distance import cosine
 from wordcloud import WordCloud
 from scipy.sparse import csr_matrix
 from .LDA.lda_gibbs import vanilla_gibbs_func, load_wk_mat_func, final_assignment_func, load_dk_mat_func
-from typing import Union, List, Tuple, Callable, Set
-from collections import Counter
+from typing import Union, List, Tuple, Callable
 from tqdm import tqdm
-import scipy
-import time
-from itertools import chain
-from joblib import Parallel, delayed
 from matplotlib.backends.backend_pdf import PdfPages
 from .topic_matching import TopicClusters
 from ..preprocessing.preprocess import create_dtm, get_word_and_doc_vector
@@ -48,7 +38,10 @@ class LDAPrototype:
         """
         if not isinstance(K, int):
             try:
-                K = int(K)
+                if K == int(K):
+                    K = int(K)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("K must be an integer!")
         if K < 2:
@@ -58,7 +51,7 @@ class LDAPrototype:
                 alpha = float(alpha)
             except ValueError:
                 try:
-                    alpha = np.array(alpha)
+                    alpha = np.array(alpha, dtype=float)
                 except ValueError:
                     raise TypeError("alpha must be a float or an array of length K!")
         if isinstance(alpha, np.ndarray):
@@ -73,7 +66,7 @@ class LDAPrototype:
                 gamma = float(gamma)
             except ValueError:
                 try:
-                    gamma = np.array(gamma)
+                    gamma = np.array(gamma, dtype=float)
                 except ValueError:
                     raise TypeError("gamma must be a float or an array of length K!")
         if isinstance(gamma, np.ndarray):
@@ -85,6 +78,8 @@ class LDAPrototype:
             raise ValueError("gamma must be a float greater than 0!")
         if not isinstance(prototype, int):
             try:
+                if prototype != int(prototype):
+                    raise ValueError
                 prototype = int(prototype)
             except ValueError:
                 raise TypeError("prototype must be an integer!")
@@ -94,22 +89,33 @@ class LDAPrototype:
             topic_threshold = [5, 0.002]
         elif not isinstance(topic_threshold, list):
             raise TypeError("topic_threshold must be a list of an integer and a float!")
-        elif topic_threshold[0] < 0 or topic_threshold[1] < 0:
-            raise ValueError("topic_threshold must be a natural number greater than or equal to than 0")
-        if prototype_measure not in ["jaccard", "cosine"] and not callable(prototype_measure):
+        if not isinstance(topic_threshold[0], int):
+            try:
+                new_thresh = int(topic_threshold[0])
+                if topic_threshold[0] != new_thresh:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("The first value in topic_threshold must be an integer!")
+            topic_threshold[0] = new_thresh
+        if not isinstance(topic_threshold[1], float):
+            raise TypeError("The second value in topic_threshold must be a float!")
+        if topic_threshold[0] < 0 or topic_threshold[1] < 0 or topic_threshold[1] >= 1:
+            raise ValueError("topic_threshold must contain numbers larger or equal to 0. The second number must also be smaller than 1!")
+        if not isinstance(prototype_measure, str) and not callable(prototype_measure):
+            raise TypeError("prototype_measure must be a string or a callable!")
+        elif prototype_measure not in ["jaccard", "cosine"] and not callable(prototype_measure):
             raise ValueError("prototype_measure must be either 'jaccard', 'cosine' or a callable!")
         if not isinstance(min_count, int):
             try:
+                if min_count != int(min_count):
+                    raise ValueError
                 min_count = int(min_count)
             except ValueError:
                 raise TypeError("min_count must be an integer!")
-        if min_count < 1:
-            raise ValueError("min_count must be a natural number greater than 0")
+        if min_count < 0:
+            raise ValueError("min_count must be a natural number!")
         if not isinstance(max_assign, bool):
-            try:
-                max_assign = bool(max_assign)
-            except ValueError:
-                raise TypeError("max_assign must be a boolean!")
+            raise TypeError("max_assign must be a boolean!")
         if not isinstance(verbose, float):
             try:
                 verbose = float(verbose)
@@ -147,9 +153,9 @@ class LDAPrototype:
         if not isinstance(param, float) and not isinstance(param, np.ndarray) and param is not None:
             try:
                 param = float(param)
-            except ValueError:
+            except:
                 try:
-                    param = np.array(param)
+                    param = np.array(param, dtype=float)
                 except ValueError:
                     raise TypeError("param must be a float or an array of length K!")
         if isinstance(param, float) and param <= 0:
@@ -211,34 +217,34 @@ class LDAPrototype:
             None
         """
         if not isinstance(texts, list):
+            if isinstance(texts, str):
+                raise TypeError("texts must be a list of lists of strings!")
             try:
                 texts = list(texts)
-            except ValueError:
-                raise TypeError("texts must be a list!")
-        if not isinstance(texts[0], list):
-            try:
-                texts = [list(x) for x in texts]
-            except ValueError:
-                raise TypeError("texts must be a list of lists!")
-        if not isinstance(texts[0][0], str):
-            try:
-                texts = [[str(x) for x in text] for text in texts]
+                if len(texts) <= 1:
+                    raise ValueError
             except ValueError:
                 raise TypeError("texts must be a list of lists of strings!")
+        if not isinstance(texts[0], list):
+            texts = [list(x) for x in texts]
+        if not isinstance(texts[0][0], str):
+            texts = [[str(x) for x in text] for text in texts]
+            warnings.warn("The given texts are not input as strings.")
         if not isinstance(epochs, int):
             try:
+                if epochs != int(epochs):
+                    raise ValueError
                 epochs = int(epochs)
             except ValueError:
                 raise TypeError("epochs must be an integer!")
         if epochs < 1:
             raise ValueError("epochs must be a natural number greater than 0")
         if not isinstance(first_chunk, bool):
-            try:
-                first_chunk = bool(first_chunk)
-            except ValueError:
-                raise TypeError("first_chunk must be a boolean!")
+            raise TypeError("first_chunk must be a boolean!")
         if chunk_end is not None and not isinstance(chunk_end, int):
             try:
+                if chunk_end != int(chunk_end):
+                    raise ValueError
                 chunk_end = int(chunk_end)
             except ValueError:
                 raise TypeError("chunk_end must be an integer!")
@@ -246,6 +252,8 @@ class LDAPrototype:
             raise ValueError("chunk_end must be a natural number greater than 0")
         if not isinstance(memory_start, int):
             try:
+                if memory_start != int(memory_start):
+                    raise ValueError
                 memory_start = int(memory_start)
             except ValueError:
                 raise TypeError("memory_start must be an integer!")
@@ -253,6 +261,8 @@ class LDAPrototype:
             raise ValueError("memory_start must be a natural number greater than 0")
         if not isinstance(workers, int):
             try:
+                if workers != int(workers):
+                    raise ValueError
                 workers = int(workers)
             except ValueError:
                 raise TypeError("workers must be an integer!")
@@ -270,7 +280,7 @@ class LDAPrototype:
 
         if memory_start > 0:
             memory_start = sum([memory_start > x for x in self._deleted_indices])
-            memory_start = self._len_of_docs[:memory_start].sum()
+            memory_start = sum(self._len_of_docs[:memory_start])
         if first_chunk:
             memory_word_topic_matrix = np.zeros((vocab_size, self._K), dtype=np.uint64)
         else:
@@ -333,7 +343,6 @@ class LDAPrototype:
                 all_results = pool.starmap(self._sample_gibbs, [(word_vec.copy(), assignments.copy(), doc_vec.copy(),
                                                                  word_topic_matrix.copy(), document_topic_matrix.copy(),
                                                                  v_sum.copy(), epochs) for _ in range(self._prototype)])
-            print("results are here!")
             all_results = list(all_results)
         else:
             iterator = range(self._prototype)
@@ -394,13 +403,14 @@ class LDAPrototype:
         if not isinstance(epochs, int):
             raise TypeError("epochs must be an integer!")
         vanilla_gibbs_func(word_vec, assignment_vec, doc_vec, word_topic_matrix, document_topic_matrix, v_sum,
-                           np.array(self._alpha.copy()), np.array(self._gamma.copy()), self._K, epochs, 0)
+                           np.array(self._alpha.copy()), np.array(self._gamma.copy()), np.zeros((self._K,)), self._K, epochs, 0)
 
         if self._max_assign:
-            final_assignment_func(word_vec, assignment_vec, doc_vec, word_topic_matrix, document_topic_matrix, v_sum, self._alpha.copy(), self._gamma.copy(), self._K, epochs, 0)
+            final_assignment_func(word_vec, assignment_vec, doc_vec, word_topic_matrix, document_topic_matrix, v_sum, self._alpha.copy(), self._gamma.copy(),
+                                  self._K, epochs, 0)
         return assignment_vec, word_topic_matrix, document_topic_matrix
 
-    def get_word_topic_matrix(self, word_vec: np.ndarray, assignment_vec: np.ndarray) -> np.ndarray:
+    def get_word_topic_matrix(self, word_vec: np.ndarray = None, assignment_vec: np.ndarray = None) -> np.ndarray:
         """
         Create a word-topic matrix from a word vector and an assignment vector
         Args:
@@ -409,16 +419,22 @@ class LDAPrototype:
         Returns:
             word_topic_matrix: word-topic matrix
         """
-        if not isinstance(word_vec, np.ndarray):
+        if word_vec is None:
+            word_vec = self._word_vec
+        elif not isinstance(word_vec, np.ndarray):
             try:
                 word_vec = np.array(word_vec, dtype=np.uint64)
             except ValueError:
                 raise TypeError("word_vec must be a numpy array!")
-        if not isinstance(assignment_vec, np.ndarray):
+        if assignment_vec is None:
+            assignment_vec = self._assignments
+        elif not isinstance(assignment_vec, np.ndarray):
             try:
                 assignment_vec = np.array(assignment_vec, dtype=np.uint32)
             except ValueError:
                 raise TypeError("assignment_vec must be a numpy array!")
+        if word_vec.shape != assignment_vec.shape:
+            raise ValueError("word_vec and assignment_vec must have the same shape!")
         word_topic_matrix = np.zeros((len(self._vocab), self._K), dtype=np.uint64)
         load_wk_mat_func(word_vec, assignment_vec, word_topic_matrix, self._K)
         return word_topic_matrix.copy()
@@ -442,6 +458,8 @@ class LDAPrototype:
                 assignment_vec = np.array(assignment_vec, dtype=np.uint32)
             except ValueError:
                 raise TypeError("assignment_vec must be a numpy array!")
+        if doc_vec.shape != assignment_vec.shape:
+            raise ValueError("doc_vec and assignment_vec must have the same length!")
         document_topic_matrix = np.zeros((len(set(doc_vec)), self._K), dtype=np.uint64)
         load_dk_mat_func(doc_vec, assignment_vec, document_topic_matrix, self._K)
         return document_topic_matrix.copy()
@@ -462,22 +480,24 @@ class LDAPrototype:
         """
         if not isinstance(number, int):
             try:
-                number = int(number)
+                if number == int(number):
+                    number = int(number)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("number must be an integer!")
         if number < 1:
             raise ValueError("number must be a natural number greater than 0")
         if topic is not None and not isinstance(topic, int):
             try:
+                if int(topic) != topic:
+                    raise ValueError
                 topic = int(topic)
             except ValueError:
                 raise TypeError("topic must be an integer!")
         if topic is not None and (topic < 1 or topic > self._K):
             raise ValueError("topic must be a natural number between 1 and K")
         if not isinstance(importance, bool) and not isinstance(importance, np.ndarray):
-            try:
-                importance = bool(importance)
-            except ValueError:
                 raise TypeError("importance must be a boolean!")
         if word_topic_matrix is not None and not isinstance(word_topic_matrix, np.ndarray):
             raise TypeError("word_topic_matrix must be a numpy array!")
@@ -486,6 +506,8 @@ class LDAPrototype:
                 word_topic_matrix = self.get_word_topic_matrix(self._word_vec, self._assignments)
             else:
                 raise AttributeError("word_topic_matrix must be provided if the model has not been trained yet!")
+        if not isinstance(return_as_data_frame, bool):
+            raise TypeError("return_as_data_frame must be a boolean!")
         if isinstance(importance, bool) and importance:
             importance = self._calculate_importance(word_topic_matrix) if importance else None
         if topic is None:
@@ -510,7 +532,9 @@ class LDAPrototype:
         if not isinstance(word_topic_matrix, np.ndarray):
             raise TypeError("word_topic_matrix must be a numpy array!")
         word_topic_matrix = word_topic_matrix.transpose()
-        importance = word_topic_matrix / np.sum(word_topic_matrix, axis=1)[:, np.newaxis]
+        denominator = np.sum(word_topic_matrix, axis=1)[:, np.newaxis]
+        denominator[denominator == 0] = 1
+        importance = word_topic_matrix / denominator
         log_importance = np.log(importance + 1e-5)
         importance = importance * (log_importance - np.mean(log_importance, axis=0)[np.newaxis, :])
         return importance
@@ -532,6 +556,8 @@ class LDAPrototype:
         """
         if not isinstance(topic, int) and topic is not None:
             try:
+                if int(topic) != topic:
+                    raise ValueError
                 topic = int(topic)
             except ValueError:
                 raise TypeError("topic must be an integer!")
@@ -539,6 +565,8 @@ class LDAPrototype:
             raise ValueError("topic must be a natural number between 1 and K")
         if not isinstance(number, int):
             try:
+                if number != int(number):
+                    raise ValueError
                 number = int(number)
             except ValueError:
                 raise TypeError("number must be an integer!")
@@ -548,6 +576,8 @@ class LDAPrototype:
             raise TypeError("path must be a string or None!")
         if not isinstance(height, int):
             try:
+                if height != int(height):
+                    raise ValueError
                 height = int(height)
             except ValueError:
                 raise TypeError("height must be an integer!")
@@ -555,19 +585,18 @@ class LDAPrototype:
             raise ValueError("height must be a natural number greater than 0")
         if not isinstance(width, int):
             try:
+                if width != int(width):
+                    raise ValueError
                 width = int(width)
             except ValueError:
                 raise TypeError("width must be an integer!")
         if width < 1:
             raise ValueError("width must be a natural number greater than 0")
         if not isinstance(show, bool):
-            try:
-                show = bool(show)
-            except ValueError:
-                raise TypeError("show must be a boolean!")
+            raise TypeError("show must be a boolean!")
         if path is not None:
             matplotlib.use('Agg')
-        if path is None and show is None:
+        if path is None and show == False:
             raise ValueError("'path' and 'show' cannot both be None")
         if word_topic_matrix is None:
             word_topic_matrix = self.get_word_topic_matrix(self._word_vec, self._assignments)
@@ -578,6 +607,9 @@ class LDAPrototype:
             word_weights = [{self._vocab[index]: importance[topic, index] for index in np.argsort(-importance[topic, :])[:number]}]
         figures = []
         for i, cloud in enumerate(word_weights):
+            if sum(cloud.values()) == 0:
+                warnings.warn(f"Topic {i + 1} has no words! This might happen if there are too few words in the corpus, compared to the number of topics!")
+                continue
             wordcloud = WordCloud(width=width, height=height, background_color='white').generate_from_frequencies(cloud)
             fig = plt.figure(figsize=(15, 15 * height / width), dpi=150)
             plt.imshow(wordcloud, interpolation='bilinear')
@@ -674,5 +706,3 @@ class LDAPrototype:
             Boolean if the model has been trained before
         """
         return self._is_trained
-
-

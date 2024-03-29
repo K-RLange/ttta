@@ -44,55 +44,82 @@ class RollingLDA:
             raise TypeError("how must be a string or a list of datetime dates!")
         if not isinstance(warmup, int):
             try:
-                warmup = int(warmup)
+                if warmup == int(warmup):
+                    warmup = int(warmup)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("warmup must be an integer!")
-        if warmup < 1:
-            raise ValueError("warmup must be a natural number greater than 0")
+        if warmup < 0:
+            raise ValueError("warmup must be a natural number")
         if not isinstance(memory, int):
             try:
-                memory = int(memory)
+                if memory == int(memory):
+                    memory = int(memory)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("memory must be an integer!")
+        if not isinstance(K, int):
+            try:
+                if K == int(K):
+                    K = int(K)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("K must be an integer!")
         if memory < 1:
             raise ValueError("memory must be a natural number greater than 0")
         if not isinstance(initial_epochs, int):
             try:
-                initial_epochs = int(initial_epochs)
+                if initial_epochs == int(initial_epochs):
+                    initial_epochs = int(initial_epochs)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("initial_epochs must be an integer!")
         if not isinstance(subsequent_epochs, int):
             try:
-                subsequent_epochs = int(subsequent_epochs)
+                if subsequent_epochs == int(subsequent_epochs):
+                    subsequent_epochs = int(subsequent_epochs)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("subsequent_epochs must be an integer!")
         if initial_epochs < 1 or subsequent_epochs < 1:
             raise ValueError("initial_epochs and subsequent_epochs must be natural numbers greater than 0")
-        if not isinstance(min_docs_per_chunk, int) and min_docs_per_chunk is not None:
-            raise TypeError("min_docs_per_chunk must be an integer or None!")
         if min_docs_per_chunk is None:
-            self.min_docs_per_chunk = K * 10
-        else:
-            self.min_docs_per_chunk = min_docs_per_chunk
-        if not isinstance(verbose, float):
+            min_docs_per_chunk = K * 10
+        if not isinstance(min_docs_per_chunk, int):
             try:
-                verbose = float(verbose)
+                if min_docs_per_chunk == int(min_docs_per_chunk):
+                    min_docs_per_chunk = int(min_docs_per_chunk)
+                else:
+                    raise ValueError
             except ValueError:
-                raise TypeError("verbose must be a float!")
-
+                raise TypeError("min_docs_per_chunk must be an integer or None!")
+        if min_docs_per_chunk < 1:
+            raise ValueError("min_docs_per_chunk must be a natural number greater than 0")
+        self._min_docs_per_chunk = min_docs_per_chunk
+        if not topic_threshold:
+            topic_threshold = [5, 0.002]
         self._K = K
         self._how = how
         self._warmup = warmup
         self._memory = memory
         if alpha is None:
             self._alpha = 1 / self._K
+        else:
+            self._alpha = alpha
         if gamma is None:
             self._gamma = 1 / self._K
+        else:
+            self._gamma = gamma
         self._initial_epochs = initial_epochs
         self._subsequent_epochs = subsequent_epochs
         self._prototype = prototype
-        self._topic_threshold = topic_threshold
-        self._prototype_measure = prototype_measure
+        self._threshold = topic_threshold
+        self._measure = prototype_measure
         self._min_count = min_count
         self._max_assign = max_assign
         self.lda = lda if lda is not None else LDAPrototype(K=K, alpha=alpha, gamma=gamma, prototype=prototype, topic_threshold=topic_threshold,
@@ -105,7 +132,7 @@ class RollingLDA:
         self.chunk_indices = None
         self._date_column = "date"
         self._text_column = "text"
-        self._last_text = {self._date_column: None, "index": 0}
+        self._last_text = None
 
     def fit(self, texts: pd.DataFrame, workers: int = 1, text_column: str = "text", date_column: str = "date") -> None:
         """
@@ -119,6 +146,8 @@ class RollingLDA:
         Returns:
             None
         """
+        if not isinstance(texts, pd.DataFrame):
+            raise TypeError("texts must be a pandas DataFrame!")
         if not isinstance(text_column, str):
             raise TypeError("text_column must be a string!")
         if text_column not in texts.columns:
@@ -129,15 +158,14 @@ class RollingLDA:
             raise ValueError("texts must contain the column specified in date_column!")
         self._text_column = text_column
         self._date_column = date_column
-        if not isinstance(texts, pd.DataFrame):
-            raise TypeError("texts must be a pandas DataFrame!")
-        if text_column not in texts.columns or date_column not in texts.columns:
-            raise ValueError("texts must contain the columns 'texts' and 'date'!")
         if not isinstance(texts[self._text_column].iloc[0], list):
             raise TypeError("The elements of the 'texts' column of texts must each contain a tokenized document as a list of strings!")
         if not isinstance(workers, int):
             try:
-                workers = int(workers)
+                if workers == int(workers):
+                    workers = int(workers)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("workers must be an integer!")
         if self.lda.is_trained():
@@ -146,7 +174,7 @@ class RollingLDA:
         texts[date_column] = pd.to_datetime(texts[date_column])
         texts.sort_values(by=date_column, inplace=True)
         self.chunk_indices = self._get_time_indices(texts)
-        if len(self.chunk_indices) < self._warmup + 1:
+        if self.chunk_indices.shape[0] < self._warmup + 1:
             raise ValueError(f"The number of chunks in the data must be larger than warmup!")
         iterator = self.chunk_indices.iloc[self._warmup:].iterrows()
         if self._verbose > 0:
@@ -162,8 +190,11 @@ class RollingLDA:
             end = len(texts) if i + 1 >= len(self.chunk_indices) else self.chunk_indices.iloc[i + 1]["chunk_start"] - 1
             self.lda.fit(texts[text_column], epochs=self._subsequent_epochs, first_chunk=False, chunk_end=end, memory_start=row["memory_start"], workers=workers)
         self.chunk_indices["chunk_start_preprocessed"] = [sum([x < y for x in self.lda._deleted_indices]) for y in self.chunk_indices["chunk_start"]]
+        if self._last_text is None:
+            self._last_text = {date_column: None, "index": 0}
         self._last_text[date_column] = texts[date_column].iloc[-1]
         self._last_text["index"] += len(texts) - 1
+        print(self._last_text)
 
     def fit_update(self, texts: pd.DataFrame, how: Union[str, List[datetime]] = None, workers: int = 1, text_column: str = "text",
                    date_column: str = "date") -> None:
@@ -179,6 +210,8 @@ class RollingLDA:
         Returns:
             None
         """
+        if not isinstance(texts, pd.DataFrame):
+            raise TypeError("texts must be a pandas DataFrame!")
         if not isinstance(text_column, str):
             raise TypeError("text_column must be a string!")
         if text_column not in texts.columns:
@@ -191,20 +224,18 @@ class RollingLDA:
             raise ValueError("texts must contain the column specified in date_column!")
         if date_column != self._date_column:
             texts[date_column] = texts[self._date_column]
-        if not isinstance(texts, pd.DataFrame):
-            raise TypeError("texts must be a pandas DataFrame!")
-        if self._text_column not in texts.columns or self._date_column not in texts.columns:
-            raise ValueError("texts must contain the columns 'texts' and 'date'!")
         if not isinstance(texts[self._text_column].iloc[0], list):
             raise TypeError("The elements of the 'texts' column of texts must each contain a tokenized document as a list of strings!")
         if not isinstance(how, str) and not isinstance(how, list) and how is not None:
             raise TypeError("how must be a string or a list of datetime dates!")
         if not isinstance(workers, int):
             try:
-                workers = int(workers)
+                if workers == int(workers):
+                    workers = int(workers)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("workers must be an integer!")
-
         if not self.lda.is_trained():
             warnings.warn("The LDA has not been trained yet. Will use fit() instead.")
             self.fit(texts, workers)
@@ -242,25 +273,30 @@ class RollingLDA:
         """
         if not isinstance(chunk, int) and chunk is not None and chunk != "all":
             try:
-                chunk = int(chunk)
+                if chunk == int(chunk):
+                    chunk = int(chunk)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("chunk must be an integer, 'all' or None!")
         if not isinstance(topic, int) and topic is not None:
             try:
-                topic = int(topic)
+                if topic == int(topic):
+                    topic = int(topic)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("topic must be an integer or None!")
         if not isinstance(number, int):
             try:
-                number = int(number)
+                if number == int(number):
+                    number = int(number)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("number must be an integer!")
         if not isinstance(importance, bool):
-            try:
-                importance = bool(importance)
-            except ValueError:
-                raise TypeError("importance must be a boolean!")
-
+            raise TypeError("importance must be a boolean!")
         if chunk is None:
             word_topic_matrix = self.get_word_topic_matrix()
             return self.lda.top_words(number=number, topic=topic, importance=importance, word_topic_matrix=word_topic_matrix,
@@ -269,7 +305,7 @@ class RollingLDA:
             top_words = [self.top_words(chunk=i, number=number, importance=importance, return_as_data_frame=return_as_data_frame) for i in range(len(self.chunk_indices))]
             if return_as_data_frame:
                 top_words = pd.concat(top_words)
-                top_words.set_index([f"Chunk {i+1}, word {x+1}" for i in range(len(self.chunk_indices)) for x in range(number)], inplace=True)
+                top_words.index = [f"Chunk {i+1}, word {x+1}" for i in range(len(self.chunk_indices)) for x in range(number)]
             return top_words
         else:
             word_topic_matrix = self.get_word_topic_matrix(chunk)
@@ -286,7 +322,10 @@ class RollingLDA:
         """
         if not isinstance(chunk, int) and chunk is not None:
             try:
-                chunk = int(chunk)
+                if chunk == int(chunk):
+                    chunk = int(chunk)
+                else:
+                    raise ValueError
             except ValueError:
                 raise TypeError("chunk must be an integer or None!")
         assignments = self.lda.get_assignment_vec()
@@ -361,10 +400,7 @@ class RollingLDA:
         if not isinstance(texts, pd.DataFrame):
             raise TypeError("texts must be a pandas DataFrame!")
         if not isinstance(update, bool):
-            try:
-                update = bool(update)
-            except ValueError:
-                raise TypeError("update must be a boolean!")
+            raise TypeError("update must be a boolean!")
         if how is None:
             how = self._how
         elif isinstance(how, str):
@@ -377,7 +413,7 @@ class RollingLDA:
                 warnings.warn(f"The time indices are created using fixed dates instead of periodic distances. This might create inconsistencies.")
         last_date = self._last_text[self._date_column] if self.lda.is_trained() else None
         period_start = chunk_creation._get_time_indices(texts, how, last_date=last_date, date_column=self._date_column,
-                                                        min_docs_per_chunk=self.min_docs_per_chunk)
+                                                        min_docs_per_chunk=self._min_docs_per_chunk)
         if update:
             period_start["chunk_start"] += self._last_text["index"] + 1
             memory_start = [period_start["chunk_start"].iloc[i - self._memory] if i - self._memory >= 0 else self.chunk_indices["chunk_start"].iloc[i - self._memory] for i in range(len(period_start))]
@@ -413,11 +449,8 @@ class RollingLDA:
                 None
         """
         if not isinstance(chunks, List) and chunks is not None:
-            try:
-                chunks = list(chunks)
-            except ValueError:
-                raise TypeError("chunks must be a list or None!")
-        if isinstance(chunks, list) and not all([isinstance(x, int) for x in chunks]):
+            raise TypeError("chunks must be a list or None!")
+        if chunks and not all([isinstance(x, int) for x in chunks]):
             raise TypeError("chunks must be a list of integers!")
         if chunks is None:
             chunks = range(len(self.chunk_indices))

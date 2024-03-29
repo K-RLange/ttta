@@ -11,8 +11,6 @@ from nltk.corpus import stopwords
 from scipy.sparse import csr_matrix, find
 from nltk.stem import WordNetLemmatizer
 lemma = WordNetLemmatizer()
-stop = stopwords.words("english")  # We use english texts
-stop = [re.sub(r"[^a-z ]", "", x) for x in stop]
 
 
 class PREPROCESS():
@@ -59,7 +57,7 @@ class PREPROCESS():
 
 
 
-def preprocess(texts):
+def preprocess(texts, language="english"):
     """
     Implements a very barebone preprocessing procedure for english texts. Is used by the pipeline-method and can be replaced by any arbitrary preprocessing function.
     Args:
@@ -67,23 +65,25 @@ def preprocess(texts):
     Returns:
         list of preprocessed texts
     """
+    if not isinstance(language, str):
+        raise TypeError("language must be a string!")
     if not isinstance(texts, list):
         try:
             texts = list(texts)
         except ValueError:
             raise TypeError("texts must be a list of strings!")
     if not isinstance(texts[0], str):
-        try:
-            texts = [str(x) for x in texts]
-        except ValueError:
-            raise TypeError("texts must be a list of strings!")
+        raise TypeError("texts must be a list of strings!")
     processed_texts = []
+    stop = stopwords.words(language)
+    stop = [re.sub(r"[^a-z ]", "", x) for x in stop]
     for text in texts:
         text = text.lower()
         text = re.sub(r"\s+", " ", text)
         text = re.sub(r"[^a-z ]", "", text).split()
         text = [x for x in text if x not in stop and len(x) > 2]
-        text = [lemma.lemmatize(x) for x in text]
+        if language == "english":
+            text = [lemma.lemmatize(x) for x in text]
         processed_texts.append(text)
     return processed_texts
 
