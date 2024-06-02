@@ -70,6 +70,9 @@ class WordSenseEmbedding:
     definition: str
     embedding: List[float]
 
+    def __str__(self):
+        return f'Sense Id: {self.id}\nSense Definition: {self.definition}\nSense Embedding: {len(self.embedding)}'
+
 
 @dataclass(init=True, frozen=True, repr=True)
 class SenseEmbedding:

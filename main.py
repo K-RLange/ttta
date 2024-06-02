@@ -1,4 +1,6 @@
-from ttta.preprocessing.semantic import OxfordDictAPI
+from src.ttta.methods.sense_representation import SenseRepresentation
 
 if __name__ == '__main__':
-    print(OxfordDictAPI('abuse').get_senses())
+    sense_embedding = SenseRepresentation(
+        target_word='bank'
+    ).infer_representation()
