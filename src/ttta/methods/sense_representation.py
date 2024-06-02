@@ -45,6 +45,11 @@ class VectorEmbeddings:
             self,
             pretrained_model_path: Union[str, Path] = None,
     ):
+        """
+        Initialize the class with the pretrained model path.
+        Args:
+            pretrained_model_path: Path to the pretrained model.
+        """
         self.model_path = pretrained_model_path
         if pretrained_model_path is not None:
             if not os.path.exists(pretrained_model_path):
@@ -140,6 +145,20 @@ class VectorEmbeddings:
 class SenseRepresentation:
     """
     This class is used to recreate the sense representation for a given word in a given period of time.
+
+    This implementation is based on the fine-grained sense representations with deep contextualized word embeddings,
+    i.e., represent each sense as a distinguished sense embedding. We directly adopt the fine-grained senses
+    defined by lexicographers. Comparing with existing diachronic sense studies, our method does not rely on
+    human interpretations or mappings to dictionary definitions.
+
+    For a sense \( s_j \) of word \( w_i \),
+    we can obtain its example sentences \( \{ \text{Sent}_{wi}^{s_j} \} \) from a dictionary. After feeding them
+    into a pre-trained language model, \( w_i \)'s token representations \( \{ e_{wi}^{s_j} \} \) can be retrieved
+    from the final hidden layer of the model. The sense embedding \( e_{ij} \) of \( s_j \) is computed by taking
+    the average of \( \{ e_{wi}^{s_j} \} \).
+
+    Citation:
+    \cite{author2024fine}
     """
 
     target_word: str
@@ -150,14 +169,21 @@ class SenseRepresentation:
             model_path: Union[str, Path] = None,
 
     ):
+        """
+        Initialize the class with the target word and the model path.
+        Args:
+            target_word: The main word to extract the sense representation for.
+            model_path: The path to the pretrained model.
+        """
         self.model = VectorEmbeddings.load(model_path)
         self.target_word = target_word
 
     def _infer_sentence_embedding(self, sense_examples: List[str]) -> torch.Tensor:
         """
         Infer the embeddings of the give_word in each example of the sense.
+        Args:
+            sense_examples: List of examples for the sense.
         Returns: torch.Tensor
-
         """
         for example in sense_examples:
             yield self.model.infer_vector(
@@ -174,7 +200,7 @@ class SenseRepresentation:
         senses = [synset.definition() for synset in synsets]
         return senses
 
-    def get_sentence_examples(self, sense: int,  min_examples=5):
+    def get_sentence_examples(self, sense: int, min_examples=5):
         """
         Extract or generate at least min_examples sentence examples for a specific sense of a word in WordNet.
 
@@ -221,7 +247,9 @@ class SenseRepresentation:
         """
         senses = self._get_senses()
         sense_embeddings = []
-        for idx, sense in tqdm(enumerate(senses), desc=f'Processing the sense representation for the word: {self.target_word}', total=len(senses)):
+        for idx, sense in tqdm(enumerate(senses),
+                               desc=f'Processing the sense representation for the word: {self.target_word}',
+                               total=len(senses)):
             examples = self.get_sentence_examples(idx + 1)
             try:
                 msg.good(f'{"-" * 10} Processing the sense: {sense} {"-" * 10}')
