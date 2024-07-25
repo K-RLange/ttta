@@ -85,16 +85,21 @@ void load_wk_mat(unsigned long long * w_vec, unsigned int * as_vec, unsigned lon
     }
 }
 
-void load_dk_mat(unsigned long long * d_vec, unsigned int * as_vec, unsigned long long * dk_mat, int K, long V, long D){
+void load_dk_mat(unsigned long long * d_vec, unsigned int * as_vec, unsigned long long * dk_mat, int K, long D){
     unsigned int k0;
     unsigned long long vv=0, dd=0;
-    srand(time(NULL));
 
     for (dd = 0; dd < D; dd++) {
         vv = d_vec[dd];
         k0 = as_vec[dd];
-        as_vec[dd] = k0;
+        // print debugging info
+//        printf("dd: %d, vv: %d, k0: %d\n", dd, vv, k0);
+//        printf("dk_mat[%d] vorher: %d\n", vv*K+k0, dk_mat[vv*K+k0]);
+        // as_vec[dd] = k0;
         dk_mat[vv*K+k0]++;
+//        printf("vv*K: %d\n", vv*K);
+//        printf("vv*K+k0: %d\n", vv*K+k0);
+//        printf("dk_mat[%d]: %d\n", vv*K+k0, dk_mat[vv*K+k0]);
     }
 }
 

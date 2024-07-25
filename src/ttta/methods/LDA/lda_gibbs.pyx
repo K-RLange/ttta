@@ -123,9 +123,8 @@ def load_wk_mat_func(np.ndarray[np.npy_uint64, ndim=1, mode="c"] w_vec not None,
 cdef extern from "vanilla_gibbs.h":
     void load_dk_mat(unsigned long long * d_vec,
                      unsigned int * as_vec,
-                     unsigned long long * vk_mat,
+                     unsigned long long * dk_mat,
                      int K,
-                     long V,
                      long D)
 
 
@@ -133,11 +132,10 @@ cdef extern from "vanilla_gibbs.h":
 
 def load_dk_mat_func(np.ndarray[np.npy_uint64, ndim=1, mode="c"] d_vec not None,
                      np.ndarray[np.uint32_t, ndim=1, mode="c"] as_vec not None,
-                     np.ndarray[np.npy_uint64, ndim=2, mode="c"] vk_mat not None,
+                     np.ndarray[np.npy_uint64, ndim=2, mode="c"] dk_mat not None,
                      K):
     load_dk_mat(<unsigned long long *> np.PyArray_DATA(d_vec),
                 <unsigned int *> np.PyArray_DATA(as_vec),
-                <unsigned long long *> np.PyArray_DATA(vk_mat),
+                <unsigned long long *> np.PyArray_DATA(dk_mat),
                 K,
-                vk_mat.shape[0],
                 d_vec.shape[0])

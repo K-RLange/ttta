@@ -386,6 +386,39 @@ class RollingLDA:
         loaded = pickle.load(open(path, "rb"))
         self.__dict__ = loaded.__dict__
 
+    def get_document_topic_matrix(self, chunk: int = None) -> np.ndarray:
+        """
+            Returns the document-topic matrix for the given chunk. If no chunk is given, the document-topic matrix for all chunks is returned.
+            Args:
+                chunk: The chunk for which the document-topic matrix should be returned. If None, the document-topic matrix for all chunks is returned.
+            Returns:
+                The document-topic matrix for the given chunk or all chunks.
+        """
+        if not isinstance(chunk, int) and chunk is not None:
+            try:
+                if chunk == int(chunk):
+                    chunk = int(chunk)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("chunk must be an integer or None!")
+        if chunk is None:
+            all_matrices = []
+            for i in range(len(self.chunk_indices)):
+                all_matrices.append(self.get_document_topic_matrix(i))
+            return np.concatenate(all_matrices, axis=0)
+        else:
+            assignments = self.lda.get_assignment_vec()
+            docs = self.lda.get_doc_vec()
+            len_of_docs = self.lda._len_of_docs
+            start_index = len_of_docs[:self.chunk_indices.iloc[chunk]["chunk_start_preprocessed"]].sum()
+            if chunk == len(self.chunk_indices) - 1:
+                end_index = len(assignments)
+            else:
+                end_index = len_of_docs[:self.chunk_indices.iloc[chunk + 1]["chunk_start_preprocessed"]].sum()
+            return self.lda.get_document_topic_matrix(docs[start_index:end_index],
+                                                      assignments[start_index:end_index])
+
 
     def _get_time_indices(self, texts: pd.DataFrame, update: bool = False, how: Union[str, List[datetime]] = None) -> pd.DataFrame:
         """

@@ -9,6 +9,7 @@ import pandas as pd
 from wordcloud import WordCloud
 from scipy.sparse import csr_matrix
 from .LDA.lda_gibbs import vanilla_gibbs_func, load_wk_mat_func, final_assignment_func, load_dk_mat_func
+from .LDA.importance_calculation import calculate_importance
 from typing import Union, List, Tuple, Callable
 from tqdm import tqdm
 from matplotlib.backends.backend_pdf import PdfPages
@@ -460,6 +461,7 @@ class LDAPrototype:
                 raise TypeError("assignment_vec must be a numpy array!")
         if doc_vec.shape != assignment_vec.shape:
             raise ValueError("doc_vec and assignment_vec must have the same length!")
+        doc_vec = doc_vec - min(doc_vec)  # Getting a zero-based index
         document_topic_matrix = np.zeros((len(set(doc_vec)), self._K), dtype=np.uint64)
         load_dk_mat_func(doc_vec, assignment_vec, document_topic_matrix, self._K)
         return document_topic_matrix.copy()
@@ -509,7 +511,7 @@ class LDAPrototype:
         if not isinstance(return_as_data_frame, bool):
             raise TypeError("return_as_data_frame must be a boolean!")
         if isinstance(importance, bool) and importance:
-            importance = self._calculate_importance(word_topic_matrix) if importance else None
+            importance = calculate_importance(word_topic_matrix) if importance else None
         if topic is None:
             top_words = [self.top_words(number, k, importance, word_topic_matrix) for k in range(1, self._K + 1)]
             if return_as_data_frame:
@@ -519,25 +521,6 @@ class LDAPrototype:
             if isinstance(importance, np.ndarray):
                 return [self._vocab[index] for index in np.argsort(-importance[topic - 1, :])[:number]]
             return [self._vocab[index] for index in np.argsort(-word_topic_matrix[topic - 1, :])[:number]]
-
-    @staticmethod
-    def _calculate_importance(word_topic_matrix: np.ndarray) -> np.ndarray:
-        """
-        Calculate the importance of words for each topic, weighting down words frequently used in multiple topics
-        Args:
-            word_topic_matrix: word-topic matrix
-        Returns:
-            importance: importance of words for each topic
-        """
-        if not isinstance(word_topic_matrix, np.ndarray):
-            raise TypeError("word_topic_matrix must be a numpy array!")
-        word_topic_matrix = word_topic_matrix.transpose()
-        denominator = np.sum(word_topic_matrix, axis=1)[:, np.newaxis]
-        denominator[denominator == 0] = 1
-        importance = word_topic_matrix / denominator
-        log_importance = np.log(importance + 1e-5)
-        importance = importance * (log_importance - np.mean(log_importance, axis=0)[np.newaxis, :])
-        return importance
 
     def wordclouds(self, topic: int = None, number: int = 50, path: str = "wordclouds.pdf", height: int = 600, width: int = 700,
                    show: bool = True, word_topic_matrix: np.ndarray = None) -> None:
@@ -600,7 +583,7 @@ class LDAPrototype:
             raise ValueError("'path' and 'show' cannot both be None")
         if word_topic_matrix is None:
             word_topic_matrix = self.get_word_topic_matrix(self._word_vec, self._assignments)
-        importance = self._calculate_importance(word_topic_matrix)
+        importance = calculate_importance(word_topic_matrix)
         if topic is None:
             word_weights = [{self._vocab[index]: importance[k, index] for index in np.argsort(-importance[k, :])[:number]} for k in range(self._K)]
         else:
