@@ -58,10 +58,9 @@ You can find a tutorial on how to use each feature of the package in the [exampl
 If you use ttta in your research, please cite the package as follows:
 ```
 @software{ttta,
-  author = {Kai-Robin Lange and Niklas Benner and Lars Grönberg and Aymane Hachcham and Imene Kolli},
+  author = {Kai-Robin Lange, Lars Grönberg, Niklas Benner, Imene Kolli, Aymane Hachcham, Jonas Rieger and Carsten Jentsch},
   title = {ttta: Tools for temporal text analysis},
   url = {https://github.com/K-RLange/ttta},
     version = {1.0.0},
-    date = {2024-09-07},
 }
 ```
