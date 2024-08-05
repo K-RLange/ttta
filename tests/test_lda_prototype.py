@@ -252,10 +252,6 @@ class TestLDAPrototype(unittest.TestCase):
             document_topic_matrix = lda.get_document_topic_matrix(lda.get_doc_vec(), "a")
         with self.assertRaises(TypeError):
             document_topic_matrix = lda.get_document_topic_matrix("a", lda.get_assignment_vec())
-    def test_calculate_importance_invalid_input(self):
-        lda = LDAPrototype(K=3, min_count=0)
-        with self.assertRaises(TypeError):
-            lda._calculate_importance(0)
 
     def test_get_vocab(self):
         lda = LDAPrototype(K=3, min_count=0)

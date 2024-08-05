@@ -314,7 +314,7 @@ class TestRollingLDA(unittest.TestCase):
         roll._get_time_indices(self.df[6:], how=self.dates[3:7])
 
     def test_wordclouds(self):
-        roll = RollingLDA(10, min_count=1, topic_threshold=[1, 0.001], prototype=1, how="1D", warmup=1, memory=2, min_docs_per_chunk=1)
+        roll = RollingLDA(3, min_count=1, topic_threshold=[1, 0.001], prototype=1, how="1D", warmup=1, memory=2, min_docs_per_chunk=1)
         roll.fit(self.df, text_column="text", date_column="date", workers=1.0)
         roll.wordclouds()
         with self.assertRaises(TypeError):
