@@ -1,15 +1,10 @@
 import pandas as pd
 from sklearn.base import BaseEstimator
 import numpy as np
-from sklearn.utils.extmath import randomized_svd
 from pathlib import Path
 import pickle
 from tqdm.autonotebook import trange, tqdm
-from typing import NamedTuple
-import numpy.typing as npt
-from .objectives import poisson_log_likelihood, poisson_log_likelihood_parameterized
 from scipy.optimize import minimize
-from ..preprocessing.preprocess import create_dtm
 from .prr_time_independent_weights import PoissonReducedRankTimeIndependentWordWeights
 from typing import Optional
 from .structures import PoissonReducedRankParameters
