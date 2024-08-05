@@ -39,7 +39,10 @@ dependencies = [
     "tqdm",
     "seaborn",
     "pyyaml",
-    "xmltodict"
+    "xmltodict",
+    "scikit-learn",
+    "transformers",
+    "torch",
 ]
 
 [build-system]
@@ -47,8 +50,7 @@ requires = ["setuptools", "wheel", "Cython", "numpy"]
 
 [tool.pyx-build.cythonize]
 sources = [
-    "src/ttta/methods/LDA/lda_gibbs.pyx",
-    "src/ttta/methods/flda/flda_c.pyx"
+    "src/ttta/methods/LDA/lda_gibbs.pyx"
 ]
 include_dirs = [
     "{numpy.get_include()}"

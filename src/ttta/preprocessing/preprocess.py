@@ -80,7 +80,7 @@ def preprocess(texts, language="english"):
     for text in texts:
         text = text.lower()
         text = re.sub(r"\s+", " ", text)
-        text = re.sub(r"[^a-z ]", "", text).split()
+        text = re.sub(r"[^a-zäöüß ]", "", text).split()
         text = [x for x in text if x not in stop and len(x) > 2]
         if language == "english":
             text = [lemma.lemmatize(x) for x in text]
