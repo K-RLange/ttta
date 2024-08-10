@@ -42,29 +42,65 @@ class Word2VecTrainer:
         try:
             self.model = Word2Vec(**kwargs)
         except Exception as e:
-            raise f"Error initializing the Word2Vec model: {e}. Please check the input parameters. Refer to the gensim.models.Word2Vec documentation for more information."
-        
+            raise RuntimeError(f"Error initializing the Word2Vec model: {e}. Please check the input parameters. Refer to the gensim.models.Word2Vec documentation for more information.")
 
-    def copy(self):
+
+
+    @classmethod
+    def load(
+            cls,
+            model_path: Union[str, Path]
+            ):
         """
-        Create a copy of the Word2VecTrainer object
+        Load a pretrained Word2Vec model
+
+        Args:
+            model_path (Union[str, Path]): Path to the pretrained model
 
         Returns:
-            copy (Word2VecTrainer): A copy of the Word2VecTrainer object
-        """
-        
+            model (gensim.models.Word2Vec): The pretrained Word2Vec model
 
-        copy = Word2VecTrainer()
-        copy(model = self.model)
-        return copy
+        Examples:
+            >>> from semantics.feature_extraction.word2vec import Word2VecTrainer
+            >>> model = Word2VecTrainer.load('model.model')
+            >>> print('Loaded model: ', model)
+            Loaded model:  Word2Vec(vocab=5, vector_size=100, alpha=0.025)
+        """
+        try:
+            model = Word2Vec.load(model_path)
+            model_args = {
+                'vector_size': model.vector_size,
+                'workers': model.workers,
+                'epochs': model.epochs,
+                'batch_words': model.batch_words,
+                'sg': model.sg,
+                'alpha': model.alpha,
+                'min_alpha': model.min_alpha,
+                'window': model.window,
+                'shrink_windows': model.shrink_windows,
+                'hs': model.hs,
+                'negative': model.negative,
+                'ns_exponent': model.ns_exponent,
+                'cbow_mean': model.cbow_mean,
+                'compute_loss': model.compute_loss,
+                'max_final_vocab': model.max_final_vocab,
+                'max_vocab_size': model.max_vocab_size,
+                'min_count': model.min_count,
+                'sample': model.sample,
+                'sorted_vocab': model.sorted_vocab,
+                'null_word': model.null_word,
+                'seed': model.seed,
+            }
+            trainer = cls(**model_args)
+            trainer.model = model  # Set the loaded model as the trainer's model
+            
+            return trainer
+
+
+        except Exception as e:
+            raise RuntimeError(f"Error loading the Word2Vec model: {e}. Please check the input path.")
     
-    def __setattr__(self, name: str, value: Any) -> None:
-        
-        if name == 'model':
-            if not isinstance(value, Word2Vec):
-                raise ValueError("The model attribute must be of type gensim.models.Word2Vec")
-        super().__setattr__(name, value)
-    
+
     def train(
             self, 
             data: List[str],
@@ -96,10 +132,15 @@ class Word2VecTrainer:
         """
         from gensim.models.phrases import Phrases, Phraser
         sent = [doc.split() for doc in data]
-        phrases = Phrases(sent, min_count=30)
-        bigram = Phraser(phrases)
+        phrases = Phrases(sent, min_count=2, threshold=1.0)
+        bigram = Phraser(phrases)  
         sentences = bigram[sent]
+   
         self.model.build_vocab(sentences, update=update)
+  
+        if len(self.model.wv.index_to_key) == 0:
+            raise RuntimeError("Vocabulary is empty, cannot proceed with training.")
+        
         total_examples = self.model.corpus_count
         self.model.train(
                 sentences,
@@ -112,27 +153,7 @@ class Word2VecTrainer:
                 )
         self.model.init_sims(replace=True)
         return self.model
-    
 
-
-    def save(self, output_path: Union[str, Path]) -> None:
-        """
-        Save the trained model to a file
-
-        Args:
-            output_path (Union[str, Path]): Path to save the trained model
-        """
-        self.model.save(output_path)
-    
-
-    def load(self, model_path: Union[str, Path]) -> None:
-        """
-        Load a pretrained model from a file
-
-        Args:
-            model_path (Union[str, Path]): Path to the pretrained model
-        """
-        self.model = Word2Vec.load(model_path)
 
     
     def get_model(self) -> Word2Vec:
@@ -285,7 +306,7 @@ class Word2VecInference:
             self,
             main_word: str,
             k: int = 10,
-            pot_tag: Union[bool, str, List[str]] = False
+            pos_tag: Union[bool, str, List[str]] = False
             ):
         """
         Get the top k most similar words to a word in the vocabulary of the model. Default k = 10
@@ -308,18 +329,18 @@ class Word2VecInference:
         try:
             top_k_words = []
             i = k
-            if isinstance(pot_tag, str):
-                pot_tag = [pot_tag]
+            if isinstance(pos_tag, str):
+                pos_tag = [pos_tag]
 
             while len(top_k_words) < k:
                 sims = self.model.wv.most_similar(main_word, topn= i)
                 words, similarities= tuple(map(list, zip(*sims)))
 
                
-                if isinstance(pot_tag, list):
-                    words = [word for word in words if pos_tag([word])[0][1] in pot_tag]
+                if isinstance(pos_tag, list):
+                    words = [word for word in words if pos_tag([word])[0][1] in pos_tag]
                     
-                elif pot_tag:
+                elif pos_tag:
                     main_pos = pos_tag([main_word])[0][1]
                     words = [word for word in words if pos_tag([word])[0][1] == main_pos]
 
@@ -430,6 +451,6 @@ def intersection_align_gensim(m1, m2, words=None):
         m.wv.key_to_index = new_key_to_index
         m.wv.index_to_key = new_index_to_key
         
-        print(len(m.wv.key_to_index), len(m.wv.vectors))
+        # print(len(m.wv.key_to_index), len(m.wv.vectors))
         
     return (m1,m2)
