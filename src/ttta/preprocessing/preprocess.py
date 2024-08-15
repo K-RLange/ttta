@@ -94,7 +94,6 @@ def preprocess(texts, language="english", individual_stop_word_list=None):
     stop = stopwords.words(language) if individual_stop_word_list is None else individual_stop_word_list
     stop = set([re.sub(r"[^a-zäöüß ]", "", x) for x in stop])
     for text in texts:
-        text = text.lower()
         text = re.sub(r"\s+", " ", text)
         text = re.sub(r"[^a-zäöüß ]", "", text).split()
         text = [x for x in text if x not in stop and len(x) > 2]
@@ -103,6 +102,8 @@ def preprocess(texts, language="english", individual_stop_word_list=None):
             text = [x[1] for x in tagged_text]
         else:
             text = [lemma.lemmatize(x) for x in text]
+        text = [x for x in text if x not in stop and len(x) > 2]
+        text = [x.lower() for x in text]
         processed_texts.append(text)
     return processed_texts
 
