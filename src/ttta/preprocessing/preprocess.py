@@ -9,8 +9,9 @@ from .utils.utils import *
 import re
 from nltk.corpus import stopwords
 from scipy.sparse import csr_matrix, find
+from nltk import WordNetLemmatizer
 from HanTa import HanoverTagger as ht
-
+lemma = WordNetLemmatizer()
 
 class PREPROCESS():
 
@@ -56,7 +57,7 @@ class PREPROCESS():
 
 
 
-def preprocess(texts, language="english"):
+def preprocess(texts, language="english", individual_stop_word_list=None):
     """
     Implements a very barebone preprocessing procedure for english texts. Is used by the pipeline-method and can be replaced by any arbitrary preprocessing function.
     Args:
@@ -73,22 +74,35 @@ def preprocess(texts, language="english"):
             raise TypeError("texts must be a list of strings!")
     if not isinstance(texts[0], str):
         raise TypeError("texts must be a list of strings!")
+    if individual_stop_word_list is not None:
+        if not isinstance(individual_stop_word_list, list):
+            try:
+                individual_stop_word_list = list(individual_stop_word_list)
+            except ValueError:
+                raise TypeError("individual_stop_word_list must be a list of strings!")
+        if not isinstance(individual_stop_word_list[0], str):
+            raise TypeError("individual_stop_word_list must be a list of strings!")
     if language == "german":
         tagger = ht.HanoverTagger('morphmodel_ger.pgz')
     elif language == "dutch":
         tagger = ht.HanoverTagger('morphmodel_dutch.pgz')
     elif language == "english":
         tagger = ht.HanoverTagger('morphmodel_en.pgz')
+    else:
+        tagger = None
     processed_texts = []
-    stop = stopwords.words(language)
-    stop = [re.sub(r"[^a-z ]", "", x) for x in stop]
+    stop = stopwords.words(language) if individual_stop_word_list is None else individual_stop_word_list
+    stop = set([re.sub(r"[^a-zäöüß ]", "", x) for x in stop])
     for text in texts:
         text = text.lower()
         text = re.sub(r"\s+", " ", text)
         text = re.sub(r"[^a-zäöüß ]", "", text).split()
         text = [x for x in text if x not in stop and len(x) > 2]
-        tagged_text = tagger.tag_sent(text)
-        text = [x[1] for x in tagged_text]
+        if tagger is not None:
+            tagged_text = tagger.tag_sent(text)
+            text = [x[1] for x in tagged_text]
+        else:
+            text = [lemma.lemmatize(x) for x in text]
         processed_texts.append(text)
     return processed_texts
 
