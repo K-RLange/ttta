@@ -103,14 +103,13 @@ def preprocess(texts, language="english", individual_stop_word_list=None, verbos
     for text in iterator:
         text = re.sub(r"\s+", " ", text)
         text = re.sub(r"[^a-zäöüßA-ZÄÖÜ ]", "", text).split()
-        text = [x for x in text if x not in stop and len(x) > 2]
         if tagger is not None:
             tagged_text = tagger.tag_sent(text)
             text = [x[1] for x in tagged_text]
         else:
             text = [lemma.lemmatize(x) for x in text]
-        text = [x for x in text if x not in stop and len(x) > 2]
         text = [x.lower() for x in text]
+        text = [x for x in text if x not in stop and len(x) > 2]
         processed_texts.append(text)
     return processed_texts
 
