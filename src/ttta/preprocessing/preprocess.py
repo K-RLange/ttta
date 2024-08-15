@@ -11,6 +11,7 @@ from nltk.corpus import stopwords
 from scipy.sparse import csr_matrix, find
 from nltk import WordNetLemmatizer
 from HanTa import HanoverTagger as ht
+from tqdm import tqdm
 lemma = WordNetLemmatizer()
 
 class PREPROCESS():
@@ -57,11 +58,14 @@ class PREPROCESS():
 
 
 
-def preprocess(texts, language="english", individual_stop_word_list=None):
+def preprocess(texts, language="english", individual_stop_word_list=None, verbose=False):
     """
     Implements a very barebone preprocessing procedure for english texts. Is used by the pipeline-method and can be replaced by any arbitrary preprocessing function.
     Args:
         texts: list of texts
+        language: language of the texts
+        individual_stop_word_list: list of stop words, optional
+        verbose: boolean, optional
     Returns:
         list of preprocessed texts
     """
@@ -82,6 +86,8 @@ def preprocess(texts, language="english", individual_stop_word_list=None):
                 raise TypeError("individual_stop_word_list must be a list of strings!")
         if not isinstance(individual_stop_word_list[0], str):
             raise TypeError("individual_stop_word_list must be a list of strings!")
+    if not isinstance(verbose, bool):
+        raise TypeError("verbose must be a boolean!")
     if language == "german":
         tagger = ht.HanoverTagger('morphmodel_ger.pgz')
     elif language == "dutch":
@@ -93,9 +99,10 @@ def preprocess(texts, language="english", individual_stop_word_list=None):
     processed_texts = []
     stop = stopwords.words(language) if individual_stop_word_list is None else individual_stop_word_list
     stop = set([re.sub(r"[^a-zäöüß ]", "", x) for x in stop])
-    for text in texts:
+    iterator = tqdm(texts) if verbose else texts
+    for text in iterator:
         text = re.sub(r"\s+", " ", text)
-        text = re.sub(r"[^a-zäöüß ]", "", text).split()
+        text = re.sub(r"[^a-zäöüßA-ZÄÖÜ ]", "", text).split()
         text = [x for x in text if x not in stop and len(x) > 2]
         if tagger is not None:
             tagged_text = tagger.tag_sent(text)
