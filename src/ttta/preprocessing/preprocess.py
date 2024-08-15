@@ -9,8 +9,7 @@ from .utils.utils import *
 import re
 from nltk.corpus import stopwords
 from scipy.sparse import csr_matrix, find
-from nltk.stem import WordNetLemmatizer
-lemma = WordNetLemmatizer()
+from HanTa import HanoverTagger as ht
 
 
 class PREPROCESS():
@@ -74,6 +73,12 @@ def preprocess(texts, language="english"):
             raise TypeError("texts must be a list of strings!")
     if not isinstance(texts[0], str):
         raise TypeError("texts must be a list of strings!")
+    if language == "german":
+        tagger = ht.HanoverTagger('morphmodel_ger.pgz')
+    elif language == "dutch":
+        tagger = ht.HanoverTagger('morphmodel_dutch.pgz')
+    elif language == "english":
+        tagger = ht.HanoverTagger('morphmodel_en.pgz')
     processed_texts = []
     stop = stopwords.words(language)
     stop = [re.sub(r"[^a-z ]", "", x) for x in stop]
@@ -82,8 +87,8 @@ def preprocess(texts, language="english"):
         text = re.sub(r"\s+", " ", text)
         text = re.sub(r"[^a-zäöüß ]", "", text).split()
         text = [x for x in text if x not in stop and len(x) > 2]
-        if language == "english":
-            text = [lemma.lemmatize(x) for x in text]
+        tagged_text = tagger.tag_sent(text)
+        text = [x[1] for x in tagged_text]
         processed_texts.append(text)
     return processed_texts
 

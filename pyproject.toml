@@ -42,6 +42,7 @@ dependencies = [
     "scikit-learn",
     "transformers",
     "torch",
+    "HanTa",
 ]
 
 [build-system]
