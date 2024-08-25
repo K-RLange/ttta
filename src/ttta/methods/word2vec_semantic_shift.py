@@ -1,7 +1,7 @@
 from typing import List, Union, Optional, Tuple, Literal
 import pandas as pd
 from gensim.models import Word2Vec
-from src.ttta.methods.word2vec.word2vec import Word2VecTrainer, Word2VecAlign, Word2VecInference
+from ttta.methods.word2vec.word2vec import Word2VecTrainer, Word2VecAlign, Word2VecInference
 import numpy as np
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
