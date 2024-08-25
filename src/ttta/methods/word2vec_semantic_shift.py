@@ -81,6 +81,7 @@ class Word2VecSemanticShift:
             texts: pd.DataFrame,
             text_column: str = "text",
             date_column: str = "date",
+            date_format: str = "%Y-%m-%d",
             align_reference: int = -1,
             epochs=5,
             start_alpha=0.025,
@@ -108,7 +109,7 @@ class Word2VecSemanticShift:
         if self.is_trained():
             raise ValueError("The model has already been trained. Call 'fit_update' to update the model.")
 
-        texts[date_column] = pd.to_datetime(texts[date_column])
+        texts[date_column] = pd.to_datetime(texts[date_column], format=date_format)
         if date_groupby:
             if date_groupby == "day":
                 texts[date_column] = texts[date_column].dt.date
@@ -128,7 +129,7 @@ class Word2VecSemanticShift:
         grouped_texts = texts.groupby(date_column)
 
         for date, group in grouped_texts:
-            print(f"Training on chunk: {date}")
+            # print(f"Training on chunk: {date}")
             trainer = Word2VecTrainer(**self.trainer_args)
             trainer.train(group[text_column].tolist(), epochs=epochs, start_alpha=start_alpha, end_alpha=end_alpha)
 
@@ -186,7 +187,7 @@ class Word2VecSemanticShift:
                 idx = self.chunks.index(str(date))
             except ValueError:
                 raise ValueError(f"The date: {str(date)}, is not in the training chunks. Call fit instead.")
-            print(f"Training on chunk: {date}")
+            # print(f"Training on chunk: {date}")
             self.trainers[idx].train(group[text_column].tolist(), epochs=epochs, start_alpha=start_alpha, end_alpha=end_alpha, update=True)
             self.word2vecs[idx] = self.trainers[idx].get_model()
 
@@ -245,20 +246,21 @@ class Word2VecSemanticShift:
             raise FileNotFoundError(f"No models found in the directory: {file_dir}")
 
         for i, file in enumerate(files):
-            print(f"Loading model: {file}, Chunk: {chunk_names[i] if chunk_names else i + 1}", end="\n\n")
+            # print(f"Loading model: {file}, Chunk: {chunk_names[i] if chunk_names else i + 1}", end="\n\n")
 
             chunk = chunk_names[i] if chunk_names else i
             trainer = Word2VecTrainer.load(file)
-            
             model = trainer.get_model()
+
+            
 
             if aligned:
                 self.aligned_models.append(model)
             else:
                 self.word2vecs.append(model)
 
-            
-            self.chunks.append(chunk)
+            if chunk not in self.chunks:
+                self.chunks.append(chunk)
 
         if align:
             if not self.word2vecs:
@@ -313,30 +315,52 @@ class Word2VecSemanticShift:
 
 
 
-    def visualize(self, chuck_index, reference, main_word: str, k: int = 10, pos_tag: Union[bool, str, List[str]] = False, extra_words: Optional[List[str]] = None, aligned: bool = True) -> None:
+    def visualize(
+            self, 
+            main_word: str, 
+            chunks_tocompare: Optional[List[int]] = None,
+            reference: Optional[int] = -1,
+            k: int = 10, 
+            pos_tag: Union[bool, str, List[str]] = False, 
+            extra_words: Optional[List[str]] = None, 
+            ignore_words: Optional[List[str]] = None,
+            aligned: bool = True,
+            tsne_perplexity: int = 30,
+            tsne_metric: str = 'euclidean',
+            tsne_learning_rate: Union[str, int] = 'auto'
+            ) -> None:
+        
+
+
         if aligned:
-            if not self.aligned_models:
+            if len(self.aligned_models) == 0:
                 raise ValueError("Models are not aligned. Call fit or fit_update first.")
 
-            inferencer = Word2VecInference(self.aligned_models[chuck_index[reference]])
+            inferencer = Word2VecInference(self.aligned_models[reference])
         else:
-            if not self.word2vecs:
+            if len(self.word2vecs) == 0:
                 raise ValueError("Models are not trained. Call fit or fit_update first.")
 
-            inferencer = Word2VecInference(self.word2vecs[chuck_index[reference]])
+            inferencer = Word2VecInference(self.word2vecs[reference])
             
 
         
         plot_vocab = extra_words if extra_words is not None else []
-        chuck_index 
+
         try:
             words, _ = inferencer.get_top_k_words(main_word, k=k, pos_tag=pos_tag)
+        
         except ValueError:
             raise ValueError(f"Word: {main_word} is not in the vocabulary of the model.")
         
         
-        plot_vocab = plot_vocab + words
+        plot_vocab.extend(words)
         plot_vocab = list(set(plot_vocab))
+
+        if ignore_words is not None:
+            for word in ignore_words:
+                if word in plot_vocab:
+                    plot_vocab.remove(word)
 
         embeddings = []
         not_in_vocab = []
@@ -348,135 +372,85 @@ class Word2VecSemanticShift:
                     embeddings.append(vector)
                 
                 except ValueError:
-                    print(f"Word: {word} is not in the vocabulary of the model.")
+                    # print(f"Word: {word} is not in the vocabulary of the model.")
                     not_in_vocab.append(word)
+
+        for word in not_in_vocab:
+            plot_vocab.remove(word)
+
+        if chunks_tocompare is None:
+            chunks_tocompare = list(range(len(self.chunks)))
         
+        else:
+            for chunk in chunks_tocompare:
+                if chunk not in self.chunks:
+                    raise ValueError(f"Chunk: {chunk} is not in the training chunks. Choose from: {self.chunks}")
+
+            chunks_tocompare = [self.chunks.index(chunk) for chunk in chunks_tocompare]
+
         main_word_embeddings = []
-        for chuck in chuck_index:
-            inferencer = Word2VecInference(self.aligned_models[chuck])
+        # for chuck in range(len(self.chunks)):
+        for chuck_idx in chunks_tocompare:
+            inferencer = Word2VecInference(self.aligned_models[chuck_idx])
             try:
                 vector = inferencer.infer_vector(main_word)
                 main_word_embeddings.append(vector)
+                plot_vocab.append(f'{main_word}_{self.chunks[chuck_idx]}')
+
             except ValueError:
-                raise ValueError(f"Word: {main_word} is not in the vocabulary of the model in chunk: {self.chunk_indices[chuck]}")
-            
-
-        n_components = 2
-        metric='euclidean'
-        learning_rate='auto'
-
-        X = np.array(embeddings)
-        X_embedded = TSNE(n_components=n_components, metric=metric, learning_rate=learning_rate).fit_transform(X)
-
-
+                raise ValueError(f"Word: {main_word} is not in the vocabulary of the model in chunk: {self.chunks[chuck_idx]}")
         
+        X = np.array(embeddings + main_word_embeddings)
+        n_samples = X.shape[0]
+        if n_samples < 2:
+            raise ValueError("Number of samples must be greater than 1.")
+        
+        if tsne_perplexity > n_samples - 1:
+            raise ValueError(f"Perplexity must be less than the number of samples - 1= {n_samples - 1}")
+        
+
+        X_embedded = TSNE(
+            metric= tsne_metric,
+            learning_rate= tsne_learning_rate,
+            perplexity= tsne_perplexity
+            ).fit_transform(X)
+
         df = pd.DataFrame(X_embedded)
+        df['word'] = plot_vocab
+        df_words = df.iloc[:-len(chunks_tocompare)]
+        df_main_word = df.iloc[-len(chunks_tocompare):]
 
-        df2 = df.iloc[:-len(chuck_index)]
-        df3 = df.iloc[-len(chuck_index):]
 
-        df3 = df3.reset_index()
-
-        plot_vocab1 = plot_vocab[:-len(chuck_index)]
-        plot_vocab2 = plot_vocab[-len(chuck_index):]
-
-        x = df2[0] 
-        y = df2[1]
-        x2 = df3[0]
-        y2 = df3[1]
-
-        # just some size adjustment...
-        fig, ax = plt.subplots(1, figsize=(14,10),dpi=80,facecolor='#ffffff')
+        # Plotting
+        fig, ax = plt.subplots(1, figsize=(14,10), dpi=80, facecolor='#ffffff')
         ax.set_facecolor('#ffffff')
 
-        # plot x and y
-        plt.scatter(x,y,c="0.6")
+        # Plot the words' embeddings
+        x_words = df_words[0]
+        y_words = df_words[1]
+        plt.scatter(x_words, y_words, c="0.6")
 
-        textsvocab = [plt.text(x[i], y[i], txt,color='#71797E',fontsize = 14) for i,txt in enumerate(plot_vocab1)]
-        plt.scatter(x2,y2,c="red")
-        textsvocab2 = [plt.text(x2[i], y2[i], txt,color='black',fontsize = 17) for i,txt in enumerate(plot_vocab2)]
-
-        def drawArrow(A, B):
-            plt.arrow(A[0], A[1], B[0] - A[0], B[1] - A[1], head_width=0.01, length_includes_head=True,color='black')
-
-        for i in range(1,len(chuck_index)):
-            X = np.array([x2[len(x2)-i],y2[len(y2)-i]])
-            Y = np.array([x2[len(x2)-(i+1)],y2[len(y2)-(i+1)]])
-            drawArrow(Y,X)
-
-        #show the plot
-        plt.savefig(f'{main_word}.png')
-        plt.show()
+        for i in range(len(df_words)):
+            ax.annotate(df_words['word'].iloc[i], (x_words.iloc[i], y_words.iloc[i]), color='#71797E', fontsize=14)
 
         
+        # Plot the main_word's embeddings across all chunks
+        x_main_word = df_main_word[0]
+        y_main_word = df_main_word[1]
+        plt.scatter(x_main_word, y_main_word, c="red")
+
+        for i in range(len(df_main_word)):
+            ax.annotate(df_main_word['word'].iloc[i], (x_main_word.iloc[i], y_main_word.iloc[i]), color='black', fontsize=17)
+
+        # Draw arrows between main_word embeddings across chunks
+
+        def drawArrow(A, B):
+            plt.arrow(A[0], A[1], B[0] - A[0], B[1] - A[1], head_width=0.01, length_includes_head=True, color='black')
+        
+        for i in range(1, len(x_main_word)):
+            drawArrow([x_main_word.iloc[i-1], y_main_word.iloc[i-1]], [x_main_word.iloc[i], y_main_word.iloc[i]])
 
 
-if __name__ == "__main__":
-    pass
-    # df = pd.read_csv("src/ttta/methods/data.csv")
-    # data = df[['date', 'text']].head(100)
-
-    # ss = Word2VecSemanticShift()
-
-    # print(ss.is_trained())
-    # print(ss.get_chunks())
-    # print(ss.get_reference())
-
-
-    # ss.fit(data, text_column="text", date_column="date", align_reference=-1, epochs=5, start_alpha=0.025, end_alpha=0.0001, date_groupby="year")
-
-    # print(ss.word2vecs[0], ss.chunks[0])
-
-    # print(ss.is_trained())
-    # print(ss.get_chunks())
-    # print(ss.get_reference())
-
-    # ss.save("src/ttta/methods/models", aligned=False)
-    # ss.save("src/ttta/methods/models", aligned=True)
-
-
-    # ss.fit_update(data, text_column="text", date_column="date", align_reference=-1, epochs=5, start_alpha=0.025, end_alpha=0.0001)
-
-    # print(ss.is_trained())
-    # print(ss.get_chunks())
-    # print(ss.get_reference())
-
-
-    # ss.save("src/ttta/methods/models", aligned=True)
-    # ss.save("src/ttta/methods/models", aligned=False)
-
-    # ss.load("src/ttta/methods/models", aligned=True)
-
-    # print(ss.is_trained())
-    # print(ss.get_chunks())
-    # print(ss.get_reference())
-
-
-
-    # ss.load("src/ttta/methods/models", aligned=False)
-
-    # print(ss.is_trained())
-    # print(ss.get_chunks())
-    # print(ss.get_reference())
-
-    # ss.load("src/ttta/methods/models", aligned=False, align=True)
-
-    # print(ss.is_trained())
-    # print(ss.get_chunks())
-    # print(ss.get_reference())
-
-    # ss.load("src/ttta/methods/models/aligned")
-
-    # print(ss.is_trained())
-    # print(ss.get_chunks())
-    # print(ss.get_reference())
-
-    
-    # ### Inference
-    # print(ss.infer_vector("gay", 0, aligned=True))
-    # print(ss.infer_vector("gay", 0, aligned=False))
-
-    # print(ss.top_words("gay", 0, k=2, pos_tag=False, aligned=True))
-    # print(ss.top_words("gay", 0, k=2, pos_tag=False, aligned=False))
-
-
+        # Show the plot
+        plt.savefig(f'{main_word}.png')
+        plt.show()
