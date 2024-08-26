@@ -6,6 +6,7 @@ from .rolling_lda import RollingLDA
 import seaborn as sns
 from matplotlib import pyplot as plt
 import math
+import pickle
 import os
 from scipy.spatial.distance import cosine
 from operator import itemgetter
@@ -261,3 +262,24 @@ class TopicalChanges:
             counts[unique] = tmp_counts
             distances.append(cosine(counts, topics_run))
         return distances
+
+    def save(self, path: str) -> None:
+        """
+        Saves the model to a pickle file
+        Returns:
+            None
+        """
+        if not isinstance(path, str):
+            raise TypeError("path must be a string!")
+        pickle.dump(self, open(path, "wb"))
+
+    def load(self, path: str) -> None:
+        """
+        Loads a model from a pickle file
+        Returns:
+            None
+        """
+        if not isinstance(path, str):
+            raise TypeError("path must be a string!")
+        loaded = pickle.load(open(path, "rb"))
+        self.__dict__ = loaded.__dict__
