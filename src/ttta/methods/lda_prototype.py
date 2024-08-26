@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from wordcloud import WordCloud
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_array
 from .LDA.lda_gibbs import vanilla_gibbs_func, load_wk_mat_func, final_assignment_func, load_dk_mat_func
 from .LDA.importance_calculation import calculate_importance
 from typing import Union, List, Tuple, Callable
@@ -190,7 +190,7 @@ class LDAPrototype:
             print(f"Created document-term matrix with shape {self._dtm.shape}")
 
     @staticmethod
-    def _get_word_and_doc_vector(dtm: Union[csr_matrix, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+    def _get_word_and_doc_vector(dtm: Union[csr_array, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
         """
         Turns a document-term matrix into index vectors. The word vector contains the vocabulary index for each word
         occurrence including multiple occurrences in one text. The document vector contains the document index for each

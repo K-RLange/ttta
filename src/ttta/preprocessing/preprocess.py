@@ -2,13 +2,13 @@ import os
 from glob import glob
 from typing import List, Tuple, Union
 import numpy as np
-from scipy.sparse import lil_matrix, hstack, vstack
+from scipy.sparse import hstack, vstack, lil_array
 import itertools
 from collections import Counter
 from .utils.utils import *
 import re
 from nltk.corpus import stopwords
-from scipy.sparse import csr_matrix, find
+from scipy.sparse import csr_array, find
 from nltk import WordNetLemmatizer
 from HanTa import HanoverTagger as ht
 from tqdm import tqdm
@@ -105,10 +105,9 @@ def preprocess(texts, language="english", individual_stop_word_list=None, verbos
         text = re.sub(r"[^a-zäöüßA-ZÄÖÜ ]", "", text).split()
         if tagger is not None:
             tagged_text = tagger.tag_sent(text)
-            text = [x[1] for x in tagged_text]
+            text = [x[1].lower() for x in tagged_text]
         else:
-            text = [lemma.lemmatize(x) for x in text]
-        text = [x.lower() for x in text]
+            text = [lemma.lemmatize(x).lower() for x in text]
         text = [x for x in text if x not in stop and len(x) > 2]
         processed_texts.append(text)
     return processed_texts
@@ -154,10 +153,14 @@ def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, del
     elif not isinstance(deleted_indices[0], int) and not isinstance(deleted_indices[0], np.int64):
         raise TypeError("deleted_indices must be a list of integers!")
     if dtm is not None:
-        if not isinstance(dtm, np.ndarray) and not isinstance(dtm, csr_matrix):
+        if not isinstance(dtm, np.ndarray) and not isinstance(dtm, csr_array):
             raise TypeError("dtm must be a numpy array!")
 
-    all_new_words_counted = Counter([word for doc in texts for word in doc])
+    counters = [Counter(doc) for doc in texts]
+    all_new_words_counted = Counter()
+    for obj in counters:
+        all_new_words_counted.update(obj)
+    # all_new_words_counted = Counter([word for doc in texts for word in doc])
     old_vocab_set = set(vocab)
     new_vocabulary = vocab + list(set([word for word, value in all_new_words_counted.items() if value >= min_count and word not in old_vocab_set]))
     new_vocabulary_index = {word: i for i, word in enumerate(new_vocabulary)}
@@ -168,23 +171,23 @@ def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, del
     deleted_indices.extend(non_deleted_indices + max(deleted_indices + [0]))
     texts = list(itertools.compress(texts, non_deleted_bool))
 
-    updated_dtm = lil_matrix((len(texts), len(new_vocabulary)))
+    updated_dtm = lil_array((len(texts), len(new_vocabulary)))
     for i, doc in enumerate(texts):
-        word_counts = Counter(doc)
-        updated_dtm[i, [new_vocabulary_index[word] for word in word_counts.keys() if word in new_vocabulary_set]] = \
-            [value for word, value in word_counts.items() if word in new_vocabulary_set]
+        updated_dtm[i, [new_vocabulary_index[word] for word in counters[i].keys() if word in new_vocabulary_set]] = \
+            [value for word, value in counters[i].items() if word in new_vocabulary_set]
 
     number_of_new_words = len(new_vocabulary) - len(vocab)
     vocab = new_vocabulary
     if dtm is not None:
-        existing_dtm = hstack((dtm, np.zeros((dtm.shape[0], number_of_new_words))))
+        new_data = lil_array((dtm.shape[0], number_of_new_words))
+        existing_dtm = hstack((dtm, new_data))
         combined_dtm = vstack((existing_dtm, updated_dtm))
         dtm = combined_dtm.tocsr()
     else:
         dtm = updated_dtm.tocsr()
     return dtm, vocab, deleted_indices
 
-def get_word_and_doc_vector(dtm: Union[csr_matrix, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+def get_word_and_doc_vector(dtm: Union[csr_array, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
     """
     Turns a document-term matrix into index vectors. The word vector contains the vocabulary index for each word
     occurrence including multiple occurrences in one text. The document vector contains the document index for each
@@ -195,7 +198,7 @@ def get_word_and_doc_vector(dtm: Union[csr_matrix, np.ndarray]) -> Tuple[np.ndar
         word_vec: word vector
         doc_vec: document vector
     """
-    if not isinstance(dtm, csr_matrix) or isinstance(dtm, np.ndarray):
+    if not isinstance(dtm, csr_array) or isinstance(dtm, np.ndarray):
         try:
             dtm = np.array(dtm)
             if len(dtm.shape) == 0:
