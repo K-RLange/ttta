@@ -1,3 +1,5 @@
+import pickle
+import warnings
 from typing import List, Union, Optional, Tuple, Literal
 import pandas as pd
 from gensim.models import Word2Vec
@@ -5,42 +7,20 @@ from ttta.methods.word2vec.word2vec import Word2VecTrainer, Word2VecAlign, Word2
 import numpy as np
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
-
+from tqdm import tqdm
+from ttta.preprocessing.chunk_creation import _get_time_indices
+from datetime import datetime
 
 class Word2VecSemanticShift:
     """
     Word2VecSemanticShift class for training and aligning Word2Vec models for semantic shift analysis.
-    
-    Args:
-        min_count (int): Ignores all words with total frequency lower than this. Default is 2.
-        window (int): The maximum distance between the current and predicted word within a sentence. Default is 5.
-        negative (int): If > 0, negative sampling will be used, the int for negative specifies how many "noise words" should be drawn. If set to 0, no negative sampling is used. Default is 5.
-        ns_exponent (float): The exponent used to shape the negative sampling distribution. A value of 1.0 samples exactly in proportion to the frequencies, 0.0 samples all words equally, while a negative value samples low-frequency words more than high-frequency words. The popular default value of 0.75 was chosen by the original Word2Vec paper. Default is 0.75.
-        vector_size (int): Dimensionality of the word vectors. Default is 300.
-        alpha (float): The initial learning rate. Default is 0.025.
-        max_vocab_size (int): Limits the RAM during vocabulary building. If there are more unique words than this, then prune the infrequent ones. Every 10 million word types need about 1GB of RAM. Set to None for no limit. Default is None.
-        sample (float): The threshold for configuring which higher-frequency words are randomly downsampled. Highly influencial. Default is 1e-3.
-        seed (int): Seed for the random number generator. Default is 1.
-        workers (int): Use these many worker threads to train the model. Default is 3.
-        min_alpha (float): Learning rate will linearly drop to min_alpha as training progresses. Default is 0.0001.
-        sg (int): Training algorithm: 1 for skip-gram; otherwise CBOW. Default is 0.
-        hs (int): If 1, hierarchical softmax will be used for model training. If set to 0, and negative is non-zero, negative sampling will be used. Default is 0.
-        cbow_mean (int): If 0, use the sum of the context word vectors. If 1, use the mean. Only applies when cbow is used. Default is 1.
-        null_word (int): If > 0, the model uses the null word to fit the model to the training data. If 0, no null word is used. Default is 0.
-        trim_rule (str): Vocabulary trimming rule, specifies whether certain words should remain in the vocabulary, be trimmed away, or handled using the default. Can be None (min_count will be used), or a string that specifies the rule. Default is None.
-        sorted_vocab (int): If 1, sort the vocabulary by descending frequency before assigning word indexes. Default is 1.
-        compute_loss (bool): If True, computes and stores loss value which can be retrieved using get_latest_training_loss(). Default is False.
-        callbacks (List): Sequence of callbacks to be executed at specific stages during training. Default is None.
-        comment (str): A comment to be added to the model. Default is None.
-        max_final_vocab (int): Limits the vocabulary size when building the vocabulary. If there are more unique words than this, then prune the infrequent ones. Every 10 million word types need about 1GB of RAM. Set to None for no limit. Default is None.
-        shrink_windows (bool): Whether to shrink the window size as training progresses. Default is False.
-    
+
     Methods:
         fit: Fits the Word2Vec models on the texts.
         fit_update: Updates the Word2Vec models on the texts.
         _align_models: Aligns the Word2Vec models.
-        save: Saves the Word2Vec models to a file.
-        load: Loads the Word2Vec models from a file.
+        save: Saves this class to a file
+        load: Loads this class from a file.
         get_parameters: Returns the parameters of the RollingLDA model.
         infer_vector: Infers the vector of a word.
         top_words: Returns the top words similar to a word.
@@ -48,7 +28,9 @@ class Word2VecSemanticShift:
     """
     def __init__(
             self,
+            how: Union[str, List[datetime]] = "M",
             min_count: int = 2,
+            min_docs_per_chunk: int = None,
             window: int = 5,
             negative: int = 5,
             ns_exponent: float = 0.75,
@@ -69,10 +51,37 @@ class Word2VecSemanticShift:
             callbacks: Optional[List] = None,
             comment: Optional[str] = None,
             max_final_vocab: Optional[int] = None, 
-            shrink_windows: bool = False
+            shrink_windows: bool = False,
+            verbose: int = 1,
             ):
-        
-
+        """
+        Args:
+        how: List of datetime dates indicating the end of time chunks or a string indicating the frequency of the time chunks as in pandas.resample().
+        min_count: Ignores all words with total frequency lower than this.
+        min_docs_per_chunk: The minimum number of documents a chunk must contain to be used for the training.
+        window: The maximum distance between the current and predicted word within a sentence.
+        negative: If > 0, negative sampling will be used, the int for negative specifies how many "noise words" should be drawn. If set to 0, no negative sampling is used.
+        ns_exponent: The exponent used to shape the negative sampling distribution. A value of 1.0 samples exactly in proportion to the frequencies, 0.0 samples all words equally, while a negative value samples low-frequency words more than high-frequency words. The popular default value of 0.75 was chosen by the original Word2Vec paper.
+        vector_size: Dimensionality of the word vectors.
+        alpha: The initial learning rate.
+        max_vocab_size: Limits the RAM during vocabulary building. If there are more unique words than this, then prune the infrequent ones. Every 10 million word types need about 1GB of RAM. Set to None for no limit.
+        sample: The threshold for configuring which higher-frequency words are randomly downsampled. Highly influencial.
+        seed: Seed for the random number generator.
+        workers: Use these many worker threads to train the model.
+        min_alpha: Learning rate will linearly drop to min_alpha as training progresses.
+        sg: Training algorithm: 1 for skip-gram; otherwise CBOW.
+        hs: If 1, hierarchical softmax will be used for model training. If set to 0, and negative is non-zero, negative sampling will be used.
+        cbow_mean: If 0, use the sum of the context word vectors. If 1, use the mean. Only applies when cbow is used.
+        null_word: If > 0, the model uses the null word to fit the model to the training data. If 0, no null word is used.
+        trim_rule: Vocabulary trimming rule, specifies whether certain words should remain in the vocabulary, be trimmed away, or handled using the default. Can be None (min_count will be used), or a string that specifies the rule.
+        sorted_vocab: If 1, sort the vocabulary by descending frequency before assigning word indexes.
+        compute_loss: If True, computes and stores loss value which can be retrieved using get_latest_training_loss().
+        callbacks: Sequence of callbacks to be executed at specific stages during training.
+        comment: A comment to be added to the model.
+        max_final_vocab: Limits the vocabulary size when building the vocabulary. If there are more unique words than this, then prune the infrequent ones. Every 10 million word types need about 1GB of RAM. Set to None for no limit.
+        shrink_windows: Whether to shrink the window size as training progresses.
+        verbose: The verbosity level. 0 does not print anything, 1 prints the current progress, 2 prints additional debug information.
+        """
         self.trainer_args = {
             "min_count":min_count,
             "window":window,
@@ -97,14 +106,15 @@ class Word2VecSemanticShift:
             "max_final_vocab":max_final_vocab,
             "shrink_windows":shrink_windows
         }
-
-    
         self.reference = None
-
+        self.how = how
         self.trainers: List[Word2VecTrainer] = []
         self.word2vecs: List[Word2Vec] = []
         self.chunks: List[str] = []
         self.aligned_models: List[Word2Vec] = []
+        self._verbose = verbose
+        self.chunk_indices = None
+        self.min_docs_per_chunk = min_docs_per_chunk
 
     def is_trained(self) -> bool:
         """
@@ -145,20 +155,18 @@ class Word2VecSemanticShift:
             epochs: int = 5,
             start_alpha: float = 0.025,
             end_alpha: float = 0.0001,
-            date_groupby: Optional[Literal["day", "week", "month", "year"]] = None
         ) -> None:
         """
         Fits the Word2Vec models on the texts.
         Args:
-            texts (pd.DataFrame): The texts to train the Word2Vec models on.
-            text_column (str): The column containing the texts. Default is "text".
-            date_column (str): The column containing the dates. Default is "date".
-            date_format (str): The format of the dates. Default is "%Y-%m-%d".
-            align_reference (int): The reference chunk index to align the models. Default is -1.
-            epochs (int): The number of epochs to train the models. Default is 5.
-            start_alpha (float): The initial learning rate. Default is 0.025.
-            end_alpha (float): The final learning rate. Default is 0.0001.
-            date_groupby (Literal["day", "week", "month", "year"]): The date groupby to group the texts. Default is None.
+            texts: The texts to train the Word2Vec models on.
+            text_column: The column containing the texts.
+            date_column: The column containing the dates.
+            date_format: The format of the dates.
+            align_reference: The reference chunk index to align the models.
+            epochs: The number of epochs to train the models.
+            start_alpha: The initial learning rate.
+            end_alpha: The final learning rate.
 
         Examples:
             >>> ss = Word2VecSemanticShift()
@@ -180,35 +188,39 @@ class Word2VecSemanticShift:
         self._text_column = text_column
         self._date_column = date_column
 
-        if not isinstance(texts[self._text_column].iloc[0], str):
-            raise TypeError("The elements of the 'texts' column of texts must each contain a string!")
+
+        if isinstance(texts[self._text_column].iloc[0], list):
+            if not isinstance(texts[self._text_column].iloc[0][0], str):
+                raise TypeError("text column must be contain list of strings or lists of lists of strings!")
+        elif isinstance(texts[self._text_column].iloc[0], str):
+            texts[self._text_column] = texts[self._text_column].apply(lambda x: x.split())
+            warnings.warn("The elements of the text column contain a string. "
+                          "Beware that the texts might not be preprocessed")
+        else:
+            raise TypeError(
+                "text column must be contain list of strings or lists of lists of strings!")
         
         if self.is_trained():
             raise ValueError("The model has already been trained. Call 'fit_update' to update the model.")
 
-        texts[date_column] = pd.to_datetime(texts[date_column], format=date_format)
-        if date_groupby:
-            if date_groupby == "day":
-                texts[date_column] = texts[date_column].dt.date
-            elif date_groupby == "week":
-                texts[date_column] = texts[date_column].dt.to_period('W').dt.to_timestamp()
-            elif date_groupby == "month":
-                texts[date_column] = texts[date_column].dt.to_period('M').dt.to_timestamp()
-            elif date_groupby == "year":
-                texts[date_column] = texts[date_column].dt.to_period('Y').dt.to_timestamp()
-            else:
-                raise ValueError("date_groupby must be one of 'day', 'week', 'month', or 'year'.")
+        texts[self._date_column] = pd.to_datetime(texts[self._date_column], format=date_format)
+        texts.sort_values(by=self._date_column, inplace=True)
+        self.chunk_indices = _get_time_indices(texts, how=self.how, date_column=self._date_column, min_docs_per_chunk=self.min_docs_per_chunk)
 
-
-
-        texts.sort_values(by=date_column, inplace=True)
-
-        grouped_texts = texts.groupby(date_column)
-
-        for date, group in grouped_texts:
-            # print(f"Training on chunk: {date}")
+        iterator = self.chunk_indices.iterrows()
+        if self._verbose > 0:
+            iterator = tqdm(iterator, total=len(self.chunk_indices), unit="chunk")
+        for i, row in enumerate(iterator):
+            date = self.chunk_indices["Date"].iloc[i]
             trainer = Word2VecTrainer(**self.trainer_args)
-            trainer.train(group[text_column].tolist(), epochs=epochs, start_alpha=start_alpha, end_alpha=end_alpha)
+            if self._verbose > 0 and i < len(self.chunk_indices) - 1:
+                iterator.set_description(f"Chunk {i + 1}/{len(self.chunk_indices)}")
+            if i == 0:  # fit warmup chunks
+                trainer.train(texts[self._text_column].iloc[:self.chunk_indices["chunk_start"].iloc[1]],
+                              epochs=epochs, start_alpha=start_alpha, end_alpha=end_alpha)
+                continue
+            end = len(texts) if i + 1 >= len(self.chunk_indices) else int(self.chunk_indices.iloc[i + 1]["chunk_start"] - 1)
+            trainer.train(texts[text_column].iloc[self.chunk_indices["chunk_start"].iloc[i]:end], epochs=epochs, start_alpha=start_alpha, end_alpha=end_alpha)
 
             self.trainers.append(trainer)
             self.word2vecs.append(trainer.get_model())
@@ -217,10 +229,6 @@ class Word2VecSemanticShift:
         
         self.reference = align_reference
         self._align_models(self.word2vecs, reference=align_reference)
-
-
-            
-
 
     def fit_update(
             self,
@@ -235,13 +243,13 @@ class Word2VecSemanticShift:
         """
         Updates the Word2Vec models on the texts.
         Args:
-            texts (pd.DataFrame): The texts to train the Word2Vec models on.
-            text_column (str): The column containing the texts. Default is "text".
-            date_column (str): The column containing the dates. Default is "date".
-            align_reference (int): The reference chunk index to align the models. Default is -1.
-            epochs (int): The number of epochs to train the models. Default is 5.
-            start_alpha (float): The initial learning rate. Default is 0.025.
-            end_alpha (float): The final learning rate. Default is 0.0001.
+            texts: The texts to train the Word2Vec models on.
+            text_column: The column containing the texts.
+            date_column: The column containing the dates.
+            align_reference: The reference chunk index to align the models.
+            epochs: The number of epochs to train the models.
+            start_alpha: The initial learning rate.
+            end_alpha: The final learning rate.
         
         Examples:
             >>> ss = Word2VecSemanticShift()
@@ -288,93 +296,40 @@ class Word2VecSemanticShift:
         self.reference = align_reference
         self._align_models(self.word2vecs, reference=align_reference)
 
-
-
     def _align_models(self, models: List[Word2Vec], reference: int = -1) -> None:
         """
         Aligns the Word2Vec models.
         Args:
-            models (List[Word2Vec]): The Word2Vec models to align.
-            reference (int): The reference chunk index. Default is -1.
+            models: The Word2Vec models to align.
+            reference: The reference chunk index.
         """
         self.aligner = Word2VecAlign(models)
         self.aligned_models = self.aligner.align(reference=reference)
-        
 
-    def save(self, file_dir: str, aligned: bool = True) -> None:
+    def save(self, path: str) -> None:
         """
-        Saves the Word2Vec models to a file.
-        Args:
-            file_dir (str): The directory to save the Word2Vec models.
-            aligned (bool): Whether to save the aligned models or not. Default is True.
-        
-        Examples:
-            >>> ss = Word2VecSemanticShift()
-            >>> ss.save("models", aligned=False)
+            Saves the Word2Vec Semantic Shift model to the given path as a .pickle-file.
+            Args:
+                path: The path to which the Word2Vec Semantic Shift model should be saved.
+            Returns:
+                None
         """
-        import os
-        os.makedirs(file_dir, exist_ok=True)
+        if not isinstance(path, str):
+            raise TypeError("path must be a string!")
+        pickle.dump(self, open(path, "wb"))
 
-        for idx in range(len(self.word2vecs)):
-            if aligned:
-                self.aligned_models[idx].save(f"{file_dir}/word2vec_{'_'.join(self.chunks[idx].split())}_aligned.model")
-
-            else:
-                self.word2vecs[idx].save(f"{file_dir}/word2vec_{'_'.join(self.chunks[idx].split())}.model")
-
-
-
-    def load(self, file_dir: str, aligned: bool = True, align: bool = False, chunk_names: Optional[List[str]] = None, reference: Optional[int] = -1) -> None:
+    def load(self, path: str) -> None:
         """
-        Loads the Word2Vec models from a file.
-        Args:
-            file_dir (str): The directory to load the Word2Vec models from.
-            aligned (bool): Whether to load the aligned models or not. Default is True.
-            align (bool): Whether to align the models or not. Default is False.
-            chunk_names (List[str]): The names of the chunks. Default is None. If None, the chunk names will be the index of the chunk.
-            reference (int): The reference chunk index. Default is -1.
-        
-        Examples:
-            >>> ss = Word2VecSemanticShift()
-            >>> ss.load("models", aligned=False)
+            Loads a pickled Word2Vec Semantic Shift model from the given path.
+            Args:
+                path: The path from which the Word2Vec Semantic Shift model should be loaded.
+            Returns:
+                None
         """
-
-        self.reference = reference
-
-        import os
-        if not os.path.exists(file_dir):
-            raise FileNotFoundError(f"The directory: {file_dir} does not exist.")
-
-        from glob import glob
-        files = glob(f"{file_dir}/*.model")
-        files = sorted(files)
-
-        if not files or len(files) == 0:
-            raise FileNotFoundError(f"No models found in the directory: {file_dir}")
-
-        for i, file in enumerate(files):
-            # print(f"Loading model: {file}, Chunk: {chunk_names[i] if chunk_names else i + 1}", end="\n\n")
-
-            chunk = chunk_names[i] if chunk_names else i
-            trainer = Word2VecTrainer.load(file)
-            model = trainer.get_model()
-
-            
-
-            if aligned:
-                self.aligned_models.append(model)
-            else:
-                self.word2vecs.append(model)
-
-            if chunk not in self.chunks:
-                self.chunks.append(chunk)
-
-        if align:
-            if not self.word2vecs:
-                raise RuntimeError("No word2vec models found to align.")
-            
-            self._align_models(self.word2vecs, reference=reference)
-
+        if not isinstance(path, str):
+            raise TypeError("path must be a string!")
+        loaded = pickle.load(open(path, "rb"))
+        self.__dict__ = loaded.__dict__
 
     def get_parameters(self) -> dict:
         """
@@ -390,15 +345,14 @@ class Word2VecSemanticShift:
         """
         return self.__dict__.copy()
 
-
     def infer_vector(self, word: str, chunk_index: int, norm: bool = False, aligned: bool = True) -> np.ndarray:
         """
         Infers the vector of a word.
         Args:
-            word (str): The word to infer the vector.
-            chunk_index (int): The index of the chunk.
-            norm (bool): Whether to normalize the vector or not. Default is False.
-            aligned (bool): Whether to infer the vector from the aligned models or not. Default is True.
+            word: The word to infer the vector.
+            chunk_index: The index of the chunk.
+            norm: Whether to normalize the vector or not.
+            aligned: Whether to infer the vector from the aligned models or not.
         Returns:
             The inferred vector of the word.
         
@@ -421,17 +375,15 @@ class Word2VecSemanticShift:
             inferencer = Word2VecInference(self.word2vecs[chunk_index])
             return inferencer.infer_vector(word, norm=norm)
 
-
-
     def top_words(self, word: str, chuck_index: int, k: int = 10, pos_tag: Union[bool, str, List[str]] = False, aligned: bool = True) -> Tuple[List[str], List[float]]:
         """
         Returns the top words similar to a word.
         Args:
-            word (str): The word to get the top words.
-            chuck_index (int): The index of the chunk.
-            k (int): The number of top words to return. Default is 10.
-            pos_tag (Union[bool, str, List[str]]): The part-of-speech tag of the words to return. Default is False.
-            aligned (bool): Whether to get the top words from the aligned models or not. Default is True.
+            word: The word to get the top words.
+            chuck_index: The index of the chunk.
+            k: The number of top words to return.
+            pos_tag: The part-of-speech tag of the words to return.
+            aligned: Whether to get the top words from the aligned models or not.
         Returns:
             A tuple containing the top words and their similarities.
         
@@ -456,8 +408,20 @@ class Word2VecSemanticShift:
             top_words, sims = inferencer.get_top_k_words(word, k=k, pos_tag=pos_tag)
             return top_words, sims
        
-
-
+    def get_vocab(self, chunk: Union[int,str] = "reference") -> List[str]:
+        """
+        Returns the vocabulary of a chunk.
+        Args:
+            chunk: The index of the chunk or 'reference'.
+        Returns:
+            The vocabulary of the chunk.
+        """
+        if chunk == "reference":
+            return self.word2vecs[-1].wv.index_to_key
+        elif isinstance(chunk, int):
+            return self.word2vecs[chunk].wv.index_to_key
+        else:
+            raise ValueError("chunk must be an integer or 'reference'.")
 
     def visualize(
             self, 
@@ -476,17 +440,17 @@ class Word2VecSemanticShift:
         """
         Visualizes the semantic shift of a word across chunks.
         Args:
-            main_word (str): The main word to visualize.
-            chunks_tocompare (List[int]): The chunks to compare. Default is None. If None, all chunks will be compared.
-            reference (int): The reference chunk index. Default is -1.
-            k (int): The number of top words to return. Default is 10.
-            pos_tag (Union[bool, str, List[str]]): The part-of-speech tag of the words to return. Default is False.
-            extra_words (List[str]): The extra words to include in the visualization. Default is None.
-            ignore_words (List[str]): The words to ignore in the visualization. Default is None.
-            aligned (bool): Whether to visualize the aligned models or not. Default is True.
-            tsne_perplexity (int): The perplexity of the t-SNE algorithm. Default is 30.
-            tsne_metric (str): The metric of the t-SNE algorithm. Default is 'euclidean'.
-            tsne_learning_rate (Union[str, int]): The learning rate of the t-SNE algorithm. Default is 'auto'.
+            main_word: The main word to visualize.
+            chunks_tocompare: The chunks to compare. If None, all chunks will be compared.
+            reference: The reference chunk index.
+            k: The number of top words to return.
+            pos_tag: The part-of-speech tag of the words to return.
+            extra_words: The extra words to include in the visualization.
+            ignore_words: The words to ignore in the visualization.
+            aligned: Whether to visualize the aligned models or not.
+            tsne_perplexity: The perplexity of the t-SNE algorithm.
+            tsne_metric: The metric of the t-SNE algorithm.
+            tsne_learning_rate: The learning rate of the t-SNE algorithm.
         
         Examples:
             >>> ss = Word2VecSemanticShift()
@@ -514,9 +478,6 @@ class Word2VecSemanticShift:
             ...     tsne_learning_rate='auto'
             ... )
         """
-        
-
-
         if aligned:
             if len(self.aligned_models) == 0:
                 raise ValueError("Models are not aligned. Call fit or fit_update first.")
@@ -527,9 +488,7 @@ class Word2VecSemanticShift:
                 raise ValueError("Models are not trained. Call fit or fit_update first.")
 
             inferencer = Word2VecInference(self.word2vecs[reference])
-            
 
-        
         plot_vocab = extra_words if extra_words is not None else []
 
         try:
@@ -557,7 +516,6 @@ class Word2VecSemanticShift:
                     embeddings.append(vector)
                 
                 except ValueError:
-                    # print(f"Word: {word} is not in the vocabulary of the model.")
                     not_in_vocab.append(word)
 
         for word in not_in_vocab:
@@ -605,7 +563,6 @@ class Word2VecSemanticShift:
         df_words = df.iloc[:-len(chunks_tocompare)]
         df_main_word = df.iloc[-len(chunks_tocompare):]
 
-
         # Plotting
         fig, ax = plt.subplots(1, figsize=(14,10), dpi=80, facecolor='#ffffff')
         ax.set_facecolor('#ffffff')
@@ -618,7 +575,6 @@ class Word2VecSemanticShift:
         for i in range(len(df_words)):
             ax.annotate(df_words['word'].iloc[i], (x_words.iloc[i], y_words.iloc[i]), color='#71797E', fontsize=14)
 
-        
         # Plot the main_word's embeddings across all chunks
         x_main_word = df_main_word[0]
         y_main_word = df_main_word[1]
@@ -634,7 +590,6 @@ class Word2VecSemanticShift:
         
         for i in range(1, len(x_main_word)):
             drawArrow([x_main_word.iloc[i-1], y_main_word.iloc[i-1]], [x_main_word.iloc[i], y_main_word.iloc[i]])
-
 
         # Show the plot
         plt.savefig(f'{main_word}.png')

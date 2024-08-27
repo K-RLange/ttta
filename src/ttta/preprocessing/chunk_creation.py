@@ -23,6 +23,8 @@ def _get_time_indices(texts: pd.DataFrame, how: Union[str, List[datetime]] = "M"
         raise TypeError("texts must be a pandas DataFrame!")
     if not isinstance(date_column, str):
         raise TypeError("date_column must be a string!")
+    if min_docs_per_chunk is None:
+        min_docs_per_chunk = 1
     if not isinstance(min_docs_per_chunk, int):
         try:
             if min_docs_per_chunk == int(min_docs_per_chunk):

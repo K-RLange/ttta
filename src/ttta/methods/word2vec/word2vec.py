@@ -1,12 +1,8 @@
-from typing import Any, List, Union
-from pathlib import Path
 from gensim.models import Word2Vec
 from pathlib import Path
 from typing import List, Union
 from nltk.tag import pos_tag
 import numpy as np
-# import nltk
-# nltk.download('averaged_perceptron_tagger')
 
 
 class Word2VecTrainer:  
@@ -27,24 +23,19 @@ class Word2VecTrainer:
             ):
         """
         Args:
-            min_count (int, optional): Ignores all words with total frequency lower than this, by default 0
-            window (int, optional): The maximum distance between the current and predicted word within a sentence, by default 15
-            negative (int, optional): If > 0, negative sampling will be used, by default 5
-            ns_exponent (float, optional): The exponent used to shape the negative sampling distribution, by default 0.75
-            vector_size (int, optional): Dimensionality of the word vectors, by default 100
-            workers (int, optional): Number of worker threads to train the model, by default 1
-            sg (int, optional): Training algorithm: 1 for skip-gram; otherwise CBOW, by default 1
-            **kwargs (optional): Additional arguments to pass to the gensim.models.Word2Vec constructor
-
-        Attributes:
-            model (gensim.models.Word2Vec): The Word2Vec model
+            min_count: Ignores all words with total frequency lower than this
+            window: The maximum distance between the current and predicted word within a sentence
+            negative: If > 0, negative sampling will be used
+            ns_exponent: The exponent used to shape the negative sampling distribution
+            vector_size: Dimensionality of the word vectors
+            workers: Number of worker threads to train the model
+            sg: Training algorithm: 1 for skip-gram; otherwise CBOW
+            **kwargs: Additional arguments to pass to the gensim.models.Word2Vec constructor
         """
         try:
             self.model = Word2Vec(**kwargs)
         except Exception as e:
             raise RuntimeError(f"Error initializing the Word2Vec model: {e}. Please check the input parameters. Refer to the gensim.models.Word2Vec documentation for more information.")
-
-
 
     @classmethod
     def load(
@@ -55,13 +46,13 @@ class Word2VecTrainer:
         Load a pretrained Word2Vec model
 
         Args:
-            model_path (Union[str, Path]): Path to the pretrained model
+            model_path: Path to the pretrained model
 
         Returns:
-            model (gensim.models.Word2Vec): The pretrained Word2Vec model
+            model: The pretrained Word2Vec model
 
         Examples:
-            >>> from semantics.feature_extraction.word2vec import Word2VecTrainer
+            >>> from ttta.methods.word2vec.word2vec import Word2VecTrainer
             >>> model = Word2VecTrainer.load('model.model')
             >>> print('Loaded model: ', model)
             Loaded model:  Word2Vec(vocab=5, vector_size=100, alpha=0.025)
@@ -99,7 +90,6 @@ class Word2VecTrainer:
 
         except Exception as e:
             raise RuntimeError(f"Error loading the Word2Vec model: {e}. Please check the input path.")
-    
 
     def train(
             self, 
@@ -115,26 +105,24 @@ class Word2VecTrainer:
         Train the Word2Vec model on the given data
         
         Args:
-            data (List[str]): List of documents
-            output_dir (Union[str, Path], None): Path to save the trained model, by default None
-            epochs (int, optional): Number of epochs, by default 5
-            start_alpha (float, optional): Learning rate, by default 0.025
-            end_alpha (float, optional): Minimum learning rate, by default 0.0001
-            compute_loss (bool, optional): Whether to compute the loss, by default True
+            data: List of documents
+            epochs: Number of epochs
+            start_alpha: Learning rate
+            end_alpha: Minimum learning rate
+            compute_loss: Whether to compute the loss
             **kwargs : optional
 
         Examples:
-            >>> from semantics.feature_extraction.word2vec import Word2VecTrainer
+            >>> from ttta.methods.word2vec.word2vec import Word2VecTrainer
             >>> texts = ['This is a test.', 'This is another test.', 'This is a third test.']
             >>> Word2VecTrainer().train(texts, epochs=1)
             >>> print('Trained model: ', Word2VecTrainer().model)
             Trained model:  Word2Vec(vocab=5, vector_size=100, alpha=0.025)
         """
         from gensim.models.phrases import Phrases, Phraser
-        sent = [doc.split() for doc in data]
-        phrases = Phrases(sent, min_count=2, threshold=1.0)
+        phrases = Phrases(data, min_count=2, threshold=1.0)
         bigram = Phraser(phrases)  
-        sentences = bigram[sent]
+        sentences = bigram[data]
    
         self.model.build_vocab(sentences, update=update)
   
@@ -161,7 +149,7 @@ class Word2VecTrainer:
         Get the trained model
 
         Returns:
-            model (gensim.models.Word2Vec): The trained Word2Vec model
+            model: The trained Word2Vec model
         """
         return self.model
     
@@ -170,7 +158,7 @@ class Word2VecTrainer:
         Get the vocabulary of the trained model
 
         Returns:
-            vocab (List[str]): The vocabulary of the model
+            vocab: The vocabulary of the model
         """
         return self.model.wv.index_to_key
     
@@ -195,7 +183,7 @@ class Word2VecAlign:
             ):
         """
         Args:
-            model_paths (List[Word2Vec]): List of Word2Vec models to align. See gensim.models.Word2Vec for more information.
+            models: List of Word2Vec models to align. See gensim.models.Word2Vec for more information.
   
         """
         self.models = models
@@ -209,15 +197,14 @@ class Word2VecAlign:
         Align the models
 
         Args: 
-            reference (int, optional): Index of the reference model, by default -1
-            output_dir (str, optional): Path to save the aligned models, by default None
-            method (str, optional): Alignment method, by default "procrustes"
+            reference: Index of the reference model
+            method: Alignment method, by default "procrustes". Currently, only procrustes is implemented.
       
         Returns:
-            aligned_models (List[gensim.models.Word2Vec]): List of aligned models
+            aligned_models: List of aligned models
 
         Examples:
-            >>> from semantics.feature_extraction.word2vec import Word2VecAlign
+            >>> from from ttta.methods.word2vec.word2vec import Word2VecAlign
             >>> model_paths = ['model1.model', 'model2.model']
             >>> Word2VecAlign(model_paths).align_models(reference_index=0, output_dir='aligned_models')
             >>> print('Aligned models: ', Word2VecAlign(model_paths).aligned_models)
@@ -261,10 +248,7 @@ class Word2VecInference:
             ):
         """
         Args:
-            pretrained_model_path (str, optional): Path to a pretrained model, by default None  
-
-        Attributes:
-            word_vectorizor (Word2VecEmbeddings): The Word2VecEmbeddings object
+            model: A Word2Vec model
         """
         self.model = model
 
@@ -275,11 +259,11 @@ class Word2VecInference:
         Infer the vector of a word
 
         Args:
-            word (str): The word to infer the embedding vector of
-            norm (bool, optional): Whether to normalize the vector, by default False
+            word: The word to infer the embedding vector of
+            norm: Whether to normalize the vector
 
         Returns:
-            embedding (List[float]): The embedding vector of the word
+            embedding: The embedding vector of the word
         """
         return self.model.wv.get_vector(word, norm = norm)
     
@@ -289,14 +273,14 @@ class Word2VecInference:
         Get the cosine similarity between two words' embedding vectors
 
         Args:
-            word1 (str): The first word
-            word2 (str): The second word
+            word1: The first word
+            word2: The second word
         
         Returns:
-            similarity (float): The cosine similarity between the two words
+            similarity: The cosine similarity between the two words
         
         Examples:
-            >>> from semantics.feature_extraction.word2vec import Word2VecInference
+            >>> from ttta.methods.word2vec.word2vec import Word2VecInference
             >>> Word2VecInference('model.model').get_similarity('test', 'another')
             0.99999994
         """
@@ -309,23 +293,21 @@ class Word2VecInference:
             pos_tag: Union[bool, str, List[str]] = False
             ):
         """
-        Get the top k most similar words to a word in the vocabulary of the model. Default k = 10
+        Get the top k most similar words to a word in the vocabulary of the model.
 
         Args:
-            main_word (str): The word to get the top k most similar words of
-            k (int, optional): The number of words to return, by default 10
+            main_word: The word to get the top k most similar words of
+            k: The number of words to return
         
         Returns:
-            topk (Tuple[List[str], List[float]]): Tuple of lists of the top k most similar words and their cosine similarities
-            similarity (List[float]): The cosine similarities of the top k most similar words
+            topk: Tuple of lists of the top k most similar words and their cosine similarities
+            similarity: The cosine similarities of the top k most similar words
         
         Examples:
-            >>> from semantics.feature_extraction.word2vec import Word2VecInference
+            >>> from ttta.methods.word2vec.word2vec import Word2VecInference
             >>> Word2VecInference('model.model').get_top_k_words('test', k=1)
             (['another'], [0.9999999403953552])
         """
-
-        
         try:
             top_k_words = []
             i = k
@@ -351,12 +333,6 @@ class Word2VecInference:
         
         except KeyError:
             raise ValueError(f"Word '{main_word}' not in vocabulary. Please try another word.")
-        
-
-
-
-
-
 
 
 
@@ -431,7 +407,6 @@ def intersection_align_gensim(m1, m2, words=None):
     # Otherwise sort by frequency (summed for both)
     common_vocab = list(common_vocab)
     common_vocab.sort(key=lambda w: m1.wv.get_vecattr(w, "count") + m2.wv.get_vecattr(w, "count"), reverse=True)
-    # print(len(common_vocab))
 
     # Then for each model...
     for m in [m1, m2]:
@@ -451,6 +426,4 @@ def intersection_align_gensim(m1, m2, words=None):
         m.wv.key_to_index = new_key_to_index
         m.wv.index_to_key = new_index_to_key
         
-        # print(len(m.wv.key_to_index), len(m.wv.vectors))
-        
-    return (m1,m2)
+    return m1, m2
