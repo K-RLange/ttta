@@ -1,6 +1,4 @@
 [![PyPi](https://img.shields.io/pypi/v/ttta.svg)](https://pypi.org/project/ttta/)
-[![PyPi](https://img.shields.io/conda/v/conda-forge/ttta)](https://anaconda.org/conda-forge/ttta)
-[![codecov](https://codecov.io/gh/K-RLange/ttta/branch/main/graph/badge.svg?token=6BM1Z3A2D8)](https://app.codecov.io/gh/K-RLange/ttta)
 [![Poster](https://badgen.net/badge/Poster/CPSS@Konvens24/red?icon=github)](https://github.com/K-RLange/ttta/docs/poster.pdf)
 # ttta: Tools for temporal text analysis
 ttta (spoken: "triple t a") is a collection of algorithms to handle diachronic texts in an efficient and unbiased manner.
