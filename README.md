@@ -1,9 +1,11 @@
 [![PyPi](https://img.shields.io/pypi/v/ttta.svg)](https://pypi.org/project/ttta/)
 [![Poster](https://badgen.net/badge/Poster/CPSS@Konvens24/red?icon=github)](https://github.com/K-RLange/ttta/blob/main/docs/poster.pdf)
 # ttta: Tools for temporal text analysis
-ttta (spoken: "triple t a") is a collection of algorithms to handle diachronic texts in an efficient and unbiased manner. This package is currently a work in progress and in its beta stage, so there may be bugs and inconsistencies. Please report them in the issue tracker.
+ttta (spoken: "triple t a") is a collection of algorithms to handle diachronic texts in an efficient and unbiased manner. 
 
 As code for temporal text analysis papers is mostly scattered across many different repositories and varies heavily in both code quality and usage interface, we thought of a solution. ttta is designed to be a provide a collection of methods with a consistent interface and a good code quality.
+
+**This package is currently a work in progress and in its beta stage, so there may be bugs and inconsistencies. If you encounter any, please report them in the issue tracker.**
 
 The package is maintained by [Kai-Robin Lange](https://lwus.statistik.tu-dortmund.de/en/chair/team/lange/).
 ## Contributing
@@ -54,6 +56,6 @@ If you use ttta in your research, please cite the package as follows:
   author = {Kai-Robin Lange, Lars Grönberg, Niklas Benner, Imene Kolli, Aymane Hachcham, Jonas Rieger and Carsten Jentsch},
   title = {ttta: Tools for temporal text analysis},
   url = {https://github.com/K-RLange/ttta},
-    version = {1.0.0},
+    version = {0.9.0},
 }
 ```
