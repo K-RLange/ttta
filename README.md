@@ -13,7 +13,7 @@ If you have implemented temporal text analysis methods in Python, we would be ha
 
 ## Features
 - **Pipeline**: An object to help the user to use the respective methods in a consistent manner. The pipeline can be used to preprocess the data, split it into time chunks, train the model on each time chunk, and evaluate the results. The pipeline can be used to train and evaluate all methods in the package. This feature was implemented by Kai-Robin Lange.
-- **Preprocessing**: Tokenization, lemmatization, stopword removal, and more. This feature was implemented by Kai-Robin Lange.
+- **Preprocessing**: Tokenization, lemmatization, stopword removal, and more. This feature was implemented by Kai-Robin Lange. This is currently still work in progress and not usable.
 - **LDAPrototype**: A method for more consistent LDA results by training multiple LDAs and selecting the best one - the prototype. See the [respective paper by Rieger et. al. here](https://doi.org/10.21203/rs.3.rs-1486359/v1). This feature was implemented by Kai-Robin Lange.
 - **RollingLDA**: A method to train an LDA model on a time series of texts. The model is updated with each new time chunk. See the [respective paper by Rieger et. al. here](http://dx.doi.org/10.18653/v1/2021.findings-emnlp.201). This feature was implemented by Niklas Benner and Kai-Robin Lange.
 - **TopicalChanges**: A method, to detect changes in word-topic distribution over time by utilizing RollingLDA and LDAPrototype and using a time-varying bootstrap control chart. See the [respective paper by Rieger et. al. here](http://ceur-ws.org/Vol-3117/paper1.pdf). This feature was implemented by Kai-Robin Lange.
