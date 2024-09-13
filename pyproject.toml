@@ -43,6 +43,7 @@ dependencies = [
     "transformers",
     "torch",
     "HanTa",
+    "wasabi",
 ]
 
 [build-system]

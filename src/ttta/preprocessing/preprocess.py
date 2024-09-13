@@ -54,7 +54,7 @@ def preprocess(texts, language="english", individual_stop_word_list=None, verbos
     stop = set([re.sub(r"[^a-zäöüß ]", "", x) for x in stop])
     iterator = tqdm(texts) if verbose else texts
     for text in iterator:
-        text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"[\s-]+", " ", text)
         text = re.sub(r"[^a-zäöüßA-ZÄÖÜ ]", "", text).split()
         if tagger is not None:
             tagged_text = tagger.tag_sent(text)
@@ -119,10 +119,10 @@ def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, del
     new_vocabulary_index = {word: i for i, word in enumerate(new_vocabulary)}
     new_vocabulary_set = set(new_vocabulary)
 
-    non_deleted_bool = [len([word for word in text if word in new_vocabulary_set]) > 0 for i, text in enumerate(texts)]
-    non_deleted_indices = np.argwhere(non_deleted_bool).flatten()
-    deleted_indices.extend(non_deleted_indices + max(deleted_indices + [0]))
-    texts = list(itertools.compress(texts, non_deleted_bool))
+    # non_deleted_bool = [len([word for word in text if word in new_vocabulary_set]) > 0 for i, text in enumerate(texts)]
+    # non_deleted_indices = np.argwhere(non_deleted_bool).flatten()
+    # deleted_indices.extend(non_deleted_indices + max(deleted_indices + [0]))
+    # texts = list(itertools.compress(texts, non_deleted_bool))
 
     updated_dtm = lil_array((len(texts), len(new_vocabulary)))
     for i, doc in enumerate(texts):

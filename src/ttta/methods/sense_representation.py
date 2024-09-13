@@ -1,5 +1,4 @@
 import os.path
-
 import torch
 from pathlib import Path
 from transformers import BertTokenizer, BertModel
@@ -61,7 +60,6 @@ class VectorEmbeddings:
         self._tokens = []
         self.model = None
         self.vocab = False
-        self.lematizer = None
 
         lg.set_verbosity_error()
         self._bert_case_preparation()
@@ -159,6 +157,7 @@ class SenseRepresentation:
 
     Citation:
     \cite{author2024fine}
+    # todo what citation is to be used here?
     """
 
     target_word: str
