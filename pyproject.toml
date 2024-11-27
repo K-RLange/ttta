@@ -40,7 +40,7 @@ dependencies = [
     "pyyaml",
     "xmltodict",
     "scikit-learn",
-    "transformers",
+    "transformers>=4.46.3",
     "torch",
     "HanTa",
     "wasabi",
