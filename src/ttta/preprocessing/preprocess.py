@@ -50,8 +50,11 @@ def preprocess(texts, language="english", individual_stop_word_list=None, verbos
     else:
         tagger = None
     processed_texts = []
-    stop = stopwords.words(language) if individual_stop_word_list is None else individual_stop_word_list
-    stop = set([re.sub(r"[^a-zäöüß ]", "", x) for x in stop])
+    try:
+        stop = stopwords.words(language) if individual_stop_word_list is None else individual_stop_word_list
+        stop = set([re.sub(r"[^a-zäöüß ]", "", x) for x in stop])
+    except:
+        stop = set()
     iterator = tqdm(texts) if verbose else texts
     for text in iterator:
         text = re.sub(r"[\s-]+", " ", text)
