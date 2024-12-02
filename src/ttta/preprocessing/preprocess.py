@@ -65,7 +65,7 @@ def preprocess(texts, language="english", individual_stop_word_list=None, verbos
         processed_texts.append(text)
     return processed_texts
 
-def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, deleted_indices=None, dtm: np.ndarray = None) -> Tuple[np.ndarray, List[str], List[int]]:
+def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, dtm: np.ndarray = None) -> Tuple[np.ndarray, List[str]]:
     """
     Creates a document-term matrix from a list of texts and updates the existing dtm if there is one.
     Stores both the dtm and the vocabulary in the class.
@@ -99,12 +99,6 @@ def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, del
             min_count = int(min_count)
         except ValueError:
             raise TypeError("min_count must be an integer!")
-    if not deleted_indices:
-        deleted_indices = []
-    elif not isinstance(deleted_indices, list):
-        raise TypeError("deleted_indices must be a list of integers!")
-    elif not isinstance(deleted_indices[0], int) and not isinstance(deleted_indices[0], np.int64):
-        raise TypeError("deleted_indices must be a list of integers!")
     if dtm is not None:
         if not isinstance(dtm, np.ndarray) and not isinstance(dtm, csr_array):
             raise TypeError("dtm must be a numpy array!")
@@ -118,11 +112,6 @@ def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, del
     new_vocabulary = vocab + list(set([word for word, value in all_new_words_counted.items() if value >= min_count and word not in old_vocab_set]))
     new_vocabulary_index = {word: i for i, word in enumerate(new_vocabulary)}
     new_vocabulary_set = set(new_vocabulary)
-
-    # non_deleted_bool = [len([word for word in text if word in new_vocabulary_set]) > 0 for i, text in enumerate(texts)]
-    # non_deleted_indices = np.argwhere(non_deleted_bool).flatten()
-    # deleted_indices.extend(non_deleted_indices + max(deleted_indices + [0]))
-    # texts = list(itertools.compress(texts, non_deleted_bool))
 
     updated_dtm = lil_array((len(texts), len(new_vocabulary)))
     for i, doc in enumerate(texts):
@@ -138,7 +127,7 @@ def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, del
         dtm = combined_dtm.tocsr()
     else:
         dtm = updated_dtm.tocsr()
-    return dtm, vocab, deleted_indices
+    return dtm, vocab
 
 def get_word_and_doc_vector(dtm: Union[csr_array, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
     """

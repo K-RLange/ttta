@@ -140,7 +140,6 @@ class LDAPrototype:
         self._is_trained = False
         self._trained_words = [0]
         self._len_of_docs = []
-        self._deleted_indices = []
         self._last_end = [0]
 
     def _create_lda_parameters(self, param: Union[np.ndarray, float, None]) -> np.ndarray:
@@ -185,7 +184,7 @@ class LDAPrototype:
         """
         if self._verbose > 0:
             print("Creating document-term matrix...")
-        self._dtm, self._vocab, self._deleted_indices = create_dtm(texts, self._vocab, self._min_count, self._deleted_indices, self._dtm)
+        self._dtm, self._vocab = create_dtm(texts, self._vocab, self._min_count, self._dtm)
         if self._verbose > 1:
             print(f"Created document-term matrix with shape {self._dtm.shape}")
 
@@ -280,7 +279,6 @@ class LDAPrototype:
         vocab_size = len(self._vocab)
 
         if memory_start > 0:
-            memory_start = sum([memory_start > x for x in self._deleted_indices])
             memory_start = sum(self._len_of_docs[:memory_start])
         if first_chunk:
             memory_word_topic_matrix = np.zeros((vocab_size, self._K), dtype=np.uint64)

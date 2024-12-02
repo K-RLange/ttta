@@ -189,7 +189,6 @@ class RollingLDA:
                 continue
             end = len(texts) if i + 1 >= len(self.chunk_indices) else self.chunk_indices.iloc[i + 1]["chunk_start"] - 1
             self.lda.fit(texts[text_column], epochs=self._subsequent_epochs, first_chunk=False, chunk_end=end, memory_start=row["memory_start"], workers=workers)
-        self.chunk_indices["chunk_start_preprocessed"] = [sum([x < y for x in self.lda._deleted_indices]) for y in self.chunk_indices["chunk_start"]]
         if self._last_text is None:
             self._last_text = {date_column: None, "index": 0}
         self._last_text[date_column] = texts[date_column].iloc[-1]
@@ -252,12 +251,10 @@ class RollingLDA:
                 iterator.set_description(f"Processing {self.chunk_indices.iloc[i + 1]['chunk_start'] - 1 - self.chunk_indices.iloc[i]['chunk_start']} documents in "
                                          f"chunk {self.chunk_indices.iloc[i]['date'].strftime('%Y-%m-%d')}")
             end = self.chunk_indices.iloc[i + 1]["chunk_start"] if i + 1 < len(self.chunk_indices) else len(texts) + self._last_text["index"] + 1   # todo hier ueberpruefen, ob ohne self.text richtige indices berechnet werden
-            self.chunk_indices["chunk_start_preprocessed"] = [sum([x < y for x in self.lda._deleted_indices]) for y in self.chunk_indices["chunk_start"]]
-            self.lda._last_end[-1] = self.chunk_indices.iloc[i]["chunk_start_preprocessed"] - self.chunk_indices.iloc[last_trained]["chunk_start_preprocessed"]
+            self.lda._last_end[-1] = self.chunk_indices.iloc[i]["chunk_start"] - self.chunk_indices.iloc[last_trained]["chunk_start"]
             self.lda.fit(texts[self._text_column], epochs=self._subsequent_epochs, first_chunk=False, chunk_end=end - self._last_text["index"] - 1, memory_start=row["memory_start"], workers=workers)
         self._last_text[self._date_column] = texts[self._date_column].iloc[-1]
         self._last_text["index"] += len(texts)
-        self.chunk_indices["chunk_start_preprocessed"] = [sum([x < y for x in self.lda._deleted_indices]) for y in self.chunk_indices["chunk_start"]]
 
     def top_words(self, chunk: Union[int, str] = None, topic: int = None, number: int = 5, importance: bool = True,
                   return_as_data_frame: bool = True) -> Union[List[str], List[List[str]]]:
@@ -334,11 +331,11 @@ class RollingLDA:
         if chunk is None:
             return self.lda.get_word_topic_matrix(words, assignments)
         else:
-            start_index = len_of_docs[:self.chunk_indices.iloc[chunk]["chunk_start_preprocessed"]].sum()
+            start_index = len_of_docs[:self.chunk_indices.iloc[chunk]["chunk_start"]].sum()
             if chunk == len(self.chunk_indices) - 1:
                 end_index = len(assignments)
             else:
-                end_index = len_of_docs[:self.chunk_indices.iloc[chunk + 1]["chunk_start_preprocessed"]].sum()
+                end_index = len_of_docs[:self.chunk_indices.iloc[chunk + 1]["chunk_start"]].sum()
             return self.lda.get_word_topic_matrix(words[start_index:end_index], assignments[start_index:end_index])
 
     def get_parameters(self) -> dict:
@@ -411,11 +408,11 @@ class RollingLDA:
             assignments = self.lda.get_assignment_vec()
             docs = self.lda.get_doc_vec()
             len_of_docs = self.lda._len_of_docs
-            start_index = len_of_docs[:self.chunk_indices.iloc[chunk]["chunk_start_preprocessed"]].sum()
+            start_index = len_of_docs[:self.chunk_indices.iloc[chunk]["chunk_start"]].sum()
             if chunk == len(self.chunk_indices) - 1:
                 end_index = len(assignments)
             else:
-                end_index = len_of_docs[:self.chunk_indices.iloc[chunk + 1]["chunk_start_preprocessed"]].sum()
+                end_index = len_of_docs[:self.chunk_indices.iloc[chunk + 1]["chunk_start"]].sum()
             return self.lda.get_document_topic_matrix(docs[start_index:end_index],
                                                       assignments[start_index:end_index])
 
