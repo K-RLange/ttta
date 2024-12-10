@@ -16,12 +16,13 @@ build:
     # golang: "1.23"
 
 # Build documentation in the "docs/" directory with Sphinx
-sphinx:
-  configuration: docs/source/conf.py
 
 python:
   install:
     - requirements: docs/requirements.txt
+
+sphinx:
+  configuration: docs/source/conf.py
 
 # Optionally build your docs in additional formats such as PDF and ePub
 # formats:
