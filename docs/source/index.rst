@@ -13,6 +13,9 @@ Contents
 
 .. toctree::
 
-   evaluation
-   methods
-   preprocessing
+   ttta
+   usage
+   modules
+   ttta.evaluation
+   ttta.methods
+   ttta.preprocessing
