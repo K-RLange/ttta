@@ -26,9 +26,6 @@ python:
 sphinx:
   configuration: docs/source/conf.py
 
-apt_packages:
-  - gcc
-  - make
 # Optionally build your docs in additional formats such as PDF and ePub
 # formats:
 #    - pdf
