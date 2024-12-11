@@ -1,7 +1,7 @@
-Methods Module
+Evaluation Module
 =================
 
-.. automodule:: ttta.methods
+.. automodule:: ttta.evaluation
    :members:
    :undoc-members:
    :show-inheritance:

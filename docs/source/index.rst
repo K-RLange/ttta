@@ -17,4 +17,6 @@ Contents
 .. toctree::
 
    usage
+   evaluation
    methods
+   preprocessing
