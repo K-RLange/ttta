@@ -1,5 +1,8 @@
-Evaluation Module
-=================
+ttta.evaluation package
+=======================
+
+Module contents
+---------------
 
 .. automodule:: ttta.evaluation
    :members:

@@ -1,7 +1,0 @@
-Methods Module
-=================
-
-.. automodule:: ttta.methods
-   :members:
-   :undoc-members:
-   :show-inheritance:
