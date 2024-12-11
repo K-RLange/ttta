@@ -1,23 +1,24 @@
+"""Implements an automatic time chunk creation for diachronic topic modeling using pandas."""
 import pandas as pd
 from typing import Union, List
 from datetime import datetime
 import warnings
 import numpy as np
 from ..methods.lda_prototype import LDAPrototype
-
 def _get_time_indices(texts: pd.DataFrame, how: Union[str, List[datetime]] = "M", last_date: datetime = None,
                       date_column: str = "date", min_docs_per_chunk: int = 500) -> pd.DataFrame:
-    """
-        Creates the time indices for the given texts. If update is True, the time indices are appended to the existing ones.
-        Args:
-            texts: A pandas DataFrame containing the documents and their respective dates.
-                   The dates must be in a format interpretable by pandas.to_datetime(). The texts must be a list of strings.
-            how: List of datetime dates indicating the end of time chunks or a string indicating the frequency of the time chunks. Used to create time
-                 chunks when fixed dates were used for the initial fit. If None, the same time chunk rule as in the initial fit is used.
-            last_date: The last date of the texts that were used before. If None, the last date of the texts is used.
-            date_column: The name of the column containing the dates in the texts DataFrame.
-            min_docs_per_chunk: The minimum number of documents that a time chunk must contain. If a time chunk does not contain at least this many
-                                documents, it is combined with the next time chunk.
+    """Create the time indices for the given texts.
+
+    If update is True, the time indices are appended to the existing ones.
+    Args:
+        texts: A pandas DataFrame containing the documents and their respective dates.
+               The dates must be in a format interpretable by pandas.to_datetime(). The texts must be a list of strings.
+        how: List of datetime dates indicating the end of time chunks or a string indicating the frequency of the time chunks. Used to create time
+             chunks when fixed dates were used for the initial fit. If None, the same time chunk rule as in the initial fit is used.
+        last_date: The last date of the texts that were used before. If None, the last date of the texts is used.
+        date_column: The name of the column containing the dates in the texts DataFrame.
+        min_docs_per_chunk: The minimum number of documents that a time chunk must contain. If a time chunk does not contain at least this many
+                            documents, it is combined with the next time chunk.
     """
     if not isinstance(texts, pd.DataFrame):
         raise TypeError("texts must be a pandas DataFrame!")

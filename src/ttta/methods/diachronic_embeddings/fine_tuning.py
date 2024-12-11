@@ -8,8 +8,7 @@ from transformers import BertForMaskedLM, AdamW, AutoTokenizer
 import logging
 
 class NewsExamplesDataset(Dataset):
-    """
-    Dataset generator for the news examples
+    """Dataset generator for the news examples.
 
     Attributes
     ----------
@@ -26,7 +25,6 @@ class NewsExamplesDataset(Dataset):
             Returns the length of the dataset
         __getitem__(self, idx: int) -> Dict[str, torch.Tensor]
             Returns the item at the given index
-
     """
     def __init__(self,
                  examples:List[str],
@@ -77,8 +75,7 @@ class NewsExamplesDataset(Dataset):
         return self.encodings.input_ids.shape[0]
 
 class BertTrainor():
-    """
-    Class for training the Bert model
+    """Class for training the Bert model.
 
     Attributes
     ----------

@@ -1,3 +1,4 @@
+"""Implements a prototype selection for topic models based on topic clustering."""
 import numpy as np
 from typing import Union, List, Tuple, Set
 from scipy.cluster.hierarchy import linkage
@@ -8,12 +9,14 @@ import pandas as pd
 
 
 class TopicClusters:
+    """Given a measure, cluster topics from several topic models and return a score or each individual model pair."""
+
     def __init__(self, word_topic_matrices: List[np.ndarray] = None, measure: Union[str, callable] = "jaccard",
                  topic_threshold: List[Union[int, float]] = None, K: int = 30) -> None:
-        """
-        Implements the TopicClustering class. This class is used to cluster topics from topic models based on a given measure.
+        """This class is used to cluster topics from topic models based on a given measure.
         It returns a score for each individual model pair, which can be used to select a prototype from the list of models.
         Apart from that, it can also give a summary as to which models have which topics in common.
+
         Args:
             word_topic_matrices: list of word-topic matrices
             measure: measure to use for prototype selection
@@ -55,8 +58,8 @@ class TopicClusters:
         self.matched_topics = None
 
     def select_prototype(self) -> Union[np.ndarray, None]:
-        """
-        Selects the prototype from a list of word-topic matrices.
+        """Select the prototype from a list of word-topic matrices.
+
         Returns:
             index of the prototype in the list of word-topic matrices
         """
@@ -66,7 +69,8 @@ class TopicClusters:
 
     def get_matched_topics(self) -> Union[pd.DataFrame, None]:
         """
-        Returns a dataframe containing all matched topics for a list of word-topic matrices
+        Return a dataframe containing all matched topics for a list of word-topic matrices.
+
         Returns:
             dataframe containing all matched topics for a list of word-topic matrices
         """
@@ -75,9 +79,9 @@ class TopicClusters:
         return self.matched_topics
 
     def _compare_topics(self, word_topic_matrices: List[np.ndarray], measure: Union[str, callable]) -> None:
-        """
-        Compares the topics of the list of word-topic matrices, given a measure. Can be used to select a prototype
-        or to give a summary of common topics.
+        """Compares the topics of the list of word-topic matrices, given a measure.
+        Can be used to select a prototype or to give a summary of common topics.
+
         Args:
             word_topic_matrices: list of word-topic matrices
             measure: measure to use for prototype selection
@@ -115,8 +119,8 @@ class TopicClusters:
         self.matched_topics = matched_topics
 
     def _check_topic_thresholds(self, word_topic_matrices: np.ndarray) -> Tuple[dict, Set[int]]:
-        """
-        Filters out words that occur less than the threshold in a topic for the prototype selection.
+        """Filter out words that occur less than the threshold in a topic for the prototype selection.
+
         Args:
             word_topic_matrices: list of word-topic matrices
         Returns:
@@ -134,7 +138,8 @@ class TopicClusters:
 
     def _cluster_topics(self, i: int, j: int, measure: Union[str, callable], threshold_dict: dict) -> Tuple[pd.DataFrame, float]:
         """
-        Clusters topics given their word-topic matrices and returns the portion of matched pairs stemming from different models
+        Cluster topics given their word-topic matrices and returns the portion of matched pairs stemming from different models.
+
         Args:
             i: index of the first topic
             j: index of the second topic

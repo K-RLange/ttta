@@ -12,8 +12,8 @@ from ttta.preprocessing.chunk_creation import _get_time_indices
 from datetime import datetime
 
 class Word2VecSemanticShift:
-    """
-    Word2VecSemanticShift class for training and aligning Word2Vec models for semantic shift analysis.
+    """Word2VecSemanticShift class for training and aligning Word2Vec models
+    for semantic shift analysis.
 
     Methods:
         fit: Fits the Word2Vec models on the texts.
@@ -130,16 +130,16 @@ class Word2VecSemanticShift:
         return len(self.word2vecs) > 0
     
     def get_chunks(self) -> List[str]:
-        """
-        Returns the chunks of the model.
+        """Returns the chunks of the model.
+
         Returns:
             A list of the chunks of the model.
         """
         return self.chunks
     
     def get_reference(self) -> int:
-        """
-        Returns the reference chunk index.
+        """Returns the reference chunk index.
+
         Returns:
             The reference chunk index.
         """
@@ -297,8 +297,8 @@ class Word2VecSemanticShift:
         self._align_models(self.word2vecs, reference=align_reference)
 
     def _align_models(self, models: List[Word2Vec], reference: int = -1) -> None:
-        """
-        Aligns the Word2Vec models.
+        """Aligns the Word2Vec models.
+
         Args:
             models: The Word2Vec models to align.
             reference: The reference chunk index.
@@ -307,24 +307,25 @@ class Word2VecSemanticShift:
         self.aligned_models = self.aligner.align(reference=reference)
 
     def save(self, path: str) -> None:
-        """
-            Saves the Word2Vec Semantic Shift model to the given path as a .pickle-file.
-            Args:
-                path: The path to which the Word2Vec Semantic Shift model should be saved.
-            Returns:
-                None
+        """Saves the Word2Vec Semantic Shift model to the given path as a
+        .pickle-file.
+
+        Args:
+            path: The path to which the Word2Vec Semantic Shift model should be saved.
+        Returns:
+            None
         """
         if not isinstance(path, str):
             raise TypeError("path must be a string!")
         pickle.dump(self, open(path, "wb"))
 
     def load(self, path: str) -> None:
-        """
-            Loads a pickled Word2Vec Semantic Shift model from the given path.
-            Args:
-                path: The path from which the Word2Vec Semantic Shift model should be loaded.
-            Returns:
-                None
+        """Loads a pickled Word2Vec Semantic Shift model from the given path.
+
+        Args:
+            path: The path from which the Word2Vec Semantic Shift model should be loaded.
+        Returns:
+            None
         """
         if not isinstance(path, str):
             raise TypeError("path must be a string!")
@@ -409,8 +410,8 @@ class Word2VecSemanticShift:
             return top_words, sims
        
     def get_vocab(self, chunk: Union[int,str] = "reference") -> List[str]:
-        """
-        Returns the vocabulary of a chunk.
+        """Returns the vocabulary of a chunk.
+
         Args:
             chunk: The index of the chunk or 'reference'.
         Returns:

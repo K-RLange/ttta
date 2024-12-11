@@ -1,4 +1,4 @@
-ttta.evaluation package
+Evaluation methods
 =======================
 
 Module contents

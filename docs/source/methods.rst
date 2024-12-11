@@ -1,4 +1,4 @@
-ttta.methods package
+Diachronic models
 ====================
 
 Subpackages
@@ -15,7 +15,7 @@ Subpackages
 Submodules
 ----------
 
-ttta.methods.lda\_prototype module
+LDAPrototype
 ----------------------------------
 
 .. automodule:: ttta.methods.lda_prototype
@@ -23,15 +23,7 @@ ttta.methods.lda\_prototype module
    :undoc-members:
    :show-inheritance:
 
-ttta.methods.matilda module
----------------------------
-
-.. automodule:: ttta.methods.matilda
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ttta.methods.prr\_time\_dependent\_weights module
+Poisson Reduced Rank Model with dependent weights
 -------------------------------------------------
 
 .. automodule:: ttta.methods.prr_time_dependent_weights
@@ -39,7 +31,7 @@ ttta.methods.prr\_time\_dependent\_weights module
    :undoc-members:
    :show-inheritance:
 
-ttta.methods.prr\_time\_independent\_weights module
+Poisson Reduced Rank Model with independent weights
 ---------------------------------------------------
 
 .. automodule:: ttta.methods.prr_time_independent_weights
@@ -47,7 +39,7 @@ ttta.methods.prr\_time\_independent\_weights module
    :undoc-members:
    :show-inheritance:
 
-ttta.methods.rolling\_lda module
+RollingLDA
 --------------------------------
 
 .. automodule:: ttta.methods.rolling_lda
@@ -55,15 +47,15 @@ ttta.methods.rolling\_lda module
    :undoc-members:
    :show-inheritance:
 
-ttta.methods.sense\_representation module
------------------------------------------
+Sense Representation using contextual embeddings
+------------------------------------------------
 
 .. automodule:: ttta.methods.sense_representation
    :members:
    :undoc-members:
    :show-inheritance:
 
-ttta.methods.topic\_matching module
+Topic Matching
 -----------------------------------
 
 .. automodule:: ttta.methods.topic_matching
@@ -71,7 +63,7 @@ ttta.methods.topic\_matching module
    :undoc-members:
    :show-inheritance:
 
-ttta.methods.topical\_changes module
+Topical Changes
 ------------------------------------
 
 .. automodule:: ttta.methods.topical_changes
@@ -79,7 +71,7 @@ ttta.methods.topical\_changes module
    :undoc-members:
    :show-inheritance:
 
-ttta.methods.word2vec\_semantic\_shift module
+Semantic shift using static embeddings
 ---------------------------------------------
 
 .. automodule:: ttta.methods.word2vec_semantic_shift

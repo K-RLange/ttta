@@ -12,12 +12,15 @@ from ..preprocessing.preprocess import create_dtm
 
 
 class PoissonReducedRankParameters(NamedTuple):
-    """Parameter class used for storing the parameters of the poisson reduced rank model.
-    Given a tdm of dimensions (J_tokens, L_documents), the dimensions of the other values are described as follows
-    alpha has dimensions (J_tokens,)
-    beta has dimensions (L_documents,)
-    b has dimensions (J_tokens, K) with K being equal to the dimensions of the political space
-    f has diemensions (K, L_documents) with K being equal to the dimensions of the political space
+    """Parameter class used for storing the parameters of the poisson reduced
+    rank model.
+
+    Given a tdm of dimensions (J_tokens, L_documents), the dimensions of
+    the other values are described as follows alpha has dimensions
+    (J_tokens,) beta has dimensions (L_documents,) b has dimensions
+    (J_tokens, K) with K being equal to the dimensions of the political
+    space f has diemensions (K, L_documents) with K being equal to the
+    dimensions of the political space
     """
 
     logged_dtm: np.ndarray
@@ -31,7 +34,9 @@ class PoissonReducedRankParameters(NamedTuple):
 
 
 def poisson_log_likelihood(Y: np.ndarray, mu: np.ndarray) -> np.float32:
-    """Computes the log likelihood over two arrays. The implementation ignores the factorial of y since this has no effect on the maximization and can be ommitted for optimization.
+    """Computes the log likelihood over two arrays. The implementation ignores
+    the factorial of y since this has no effect on the maximization and can be
+    ommitted for optimization.
 
     Args:
         Y (np.ndarray): Matrix or vector of y values (in this package: poisson distributed word counts)
@@ -47,7 +52,9 @@ def poisson_log_likelihood(Y: np.ndarray, mu: np.ndarray) -> np.float32:
 def poisson_log_likelihood_parameterized(
     y: np.ndarray, alpha: np.ndarray, beta: np.ndarray, b: np.ndarray, f: np.ndarray
 ) -> np.float32:
-    """Paramterizes the poisson log likelihood for the model Poisson Reduced Rank regression with time independent word weights in order to wrap these functions for the scipy optimization.
+    """Paramterizes the poisson log likelihood for the model Poisson Reduced
+    Rank regression with time independent word weights in order to wrap these
+    functions for the scipy optimization.
 
     Args:
         y (np.ndarray): vector of token counts (n_tokens)
@@ -84,8 +91,8 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
         date_column: str = "date",
         individual_column: str = "individual",
     ) -> np.ndarray:
-        """Converts the input pandas data frame to a document term frequency matrix.
-
+        """Converts the input pandas data frame to a document term frequency
+        matrix.
 
         Args:
             texts (pd.DataFrame): A pandas DataFrame containing the columns text_column, date_column and individual_column containing the documents and their respective dates. The column combination of individual_column and date_column leads to a panel like data structure.
@@ -143,7 +150,10 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
 
     @staticmethod
     def _normalize_matrix(X: npt.NDArray) -> dict:
-        """Normalizes a matrix and returns a normalized matrix namedTuple, containing average occurences of tokens per token across documents and per document across token, as well as the centered document term matrix.
+        """Normalizes a matrix and returns a normalized matrix namedTuple,
+        containing average occurences of tokens per token across documents and
+        per document across token, as well as the centered document term
+        matrix.
 
         Args:
             X (np.ndarray): matrix of the form (n_tokens, n_documents)
@@ -180,7 +190,8 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
         self.f = np.empty((self._L_documents, self.k))
 
     def get_params(self) -> dict:
-        """Returns the parameters for the poisson reduced rank model with independent word weights
+        """Returns the parameters for the poisson reduced rank model with
+        independent word weights.
 
         Returns:
             dict: Dictionary containing the parameter arrays
@@ -194,7 +205,8 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
         }
 
     def get_random_params(self) -> dict:
-        """Returns random parameters for the poisson reduced rank model with independent word weights
+        """Returns random parameters for the poisson reduced rank model with
+        independent word weights.
 
         Returns:
             dict: Dictionary containing the random paramters
@@ -212,8 +224,12 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
         }
 
     def set_params(self, **params) -> None:
-        """sets the internal parameters of the poisson reduced rank model. The **params should contains 'alpha', 'beta', 'b' and 'f'. 'K' is not allowed, since it would change the whole metho due to the increase in dimensions.
-        The dimensionalities are not checked, please make sure that the np.ndarrays are of the correct shape.
+        """Sets the internal parameters of the poisson reduced rank model.
+
+        The **params should contains 'alpha', 'beta', 'b' and 'f'. 'K'
+        is not allowed, since it would change the whole metho due to the
+        increase in dimensions. The dimensionalities are not checked,
+        please make sure that the np.ndarrays are of the correct shape.
         """
 
         if "alpha" in params:
@@ -250,7 +266,9 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
         n_iter: int = 100,
         tol: float = 1e-5,
     ):
-        """Fits the Poisson Reduced Rank Model with independent word weights to the the given data frame. Internally, the given pandas dataframe is converted to a numpy document term frequency matrix.
+        """Fits the Poisson Reduced Rank Model with independent word weights to
+        the the given data frame. Internally, the given pandas dataframe is
+        converted to a numpy document term frequency matrix.
 
         Args:
             texts (pd.DataFrame): A pandas DataFrame containing the columns text_column, date_column and individual_column containing the documents and their respective dates. The column combination of individual_column and date_column leads to a panel like data structure.
@@ -331,7 +349,8 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
     def _reparameterize_identification(
         self, params: PoissonReducedRankParameters
     ) -> PoissonReducedRankParameters:
-        """Reparameterizes the parameters in order to meet the identification conditions of (2) and (3) given in the paper.
+        """Reparameterizes the parameters in order to meet the identification
+        conditions of (2) and (3) given in the paper.
 
         Args:
             params (PoissonReducedRankParameters): Current parameters, of the model
@@ -373,9 +392,10 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
     def _update_f_and_beta(
         self, X: np.ndarray, model_params: PoissonReducedRankParameters
     ) -> PoissonReducedRankParameters:
-        """Updates the f matrix of the poisson reduced rank model, given the other vectors/matrices (alpha, beta and b).
-        As stated in the supplementary material of the paper, the maximization of the matrix is identical to seperatly maximizing the matrices column wise.
-
+        """Updates the f matrix of the poisson reduced rank model, given the
+        other vectors/matrices (alpha, beta and b). As stated in the
+        supplementary material of the paper, the maximization of the matrix is
+        identical to seperatly maximizing the matrices column wise.
 
         Args:
             Y (np.ndarray): logged word occurence
@@ -413,7 +433,9 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
     def _update_b_and_alpha(
         self, X: np.ndarray, model_params: PoissonReducedRankParameters
     ) -> PoissonReducedRankParameters:
-        """Updates the parameter vectors b and intercept alpha for each j. The update is done independent of j and given the latent vector f per document as well as the average token count per document beta_l.
+        """Updates the parameter vectors b and intercept alpha for each j. The
+        update is done independent of j and given the latent vector f per
+        document as well as the average token count per document beta_l.
 
         Args:
             X (np.ndarray): The word count matrix of dimensions (J_tokens, L_documents)
@@ -454,7 +476,8 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
     def _convert_parameters2loggedPoissonParameters(
         self, parameters: PoissonReducedRankParameters
     ) -> np.ndarray:
-        """Uses the calculated parameters to construct a matrix of logged poisson parameters.
+        """Uses the calculated parameters to construct a matrix of logged
+        poisson parameters.
 
         Args:
             parameters (PoissonReducedRankParameters): Parameters for the poisson reduced rank model. I.e a PoissonReducedRankParameters object.
@@ -478,7 +501,9 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
 
     @staticmethod
     def is_identified_correctly(params: PoissonReducedRankParameters, atol=0.1) -> bool:
-        """Tests if the given parameters, meet the identification conditions (2) & (3) in section 2.1. of "Poisson reduced-rank models with an application to political text data of Jentsch et. al.
+        """Tests if the given parameters, meet the identification conditions
+        (2) & (3) in section 2.1. of "Poisson reduced-rank models with an
+        application to political text data of Jentsch et. al.
 
         Args:
             params (PoissonReducedRankParameters): Parameters of the fitted model
@@ -512,14 +537,15 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
     def _wrapper_preset_svd(
         self, X: np.ndarray, **kwargs
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Preset singular value decomposition. For more information about the internal method and the result, please see sklearn.utils.extmath.randomized_svd.
+        """Preset singular value decomposition. For more information about the
+        internal method and the result, please see
+        sklearn.utils.extmath.randomized_svd.
 
         Args:
             X (np.ndarray): np.ndarray (usually 2D matrix) to decompose
 
         Returns:
             tuple[np.ndarray, np.ndarray,np.ndarray]: (Unitary matrix having left singular vectors with signs flipped as columns. ; The singular values, sorted in non-increasing order. ; Unitary matrix having right singular vectors with signs flipped as rows.
-
         """
         u, s, v = randomized_svd(
             M=X,
@@ -534,9 +560,9 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
     def _calculate_starting_values(
         self, X: npt.NDArray[np.int32]
     ) -> PoissonReducedRankParameters:
-        r"""Calculates the starting values for the optimization of the algorithm.
-            In particular :math:`\alpha^(0), \beta^(0), b^(0), f^(0)`.
-            If log(0) is encountered, a warning is suppresed.
+        r"""Calculates the starting values for the optimization of the
+        algorithm. In particular :math:`\alpha^(0), \beta^(0), b^(0), f^(0)`.
+        If log(0) is encountered, a warning is suppresed.
 
         Args:
             X (npt.NDArray[np.int32]): Document Term Matrix (DTM) of dimensions (n_tokens, n_documents).
@@ -577,7 +603,9 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
     def wrapper_update_f_poisson_log_likelihood(
         params: np.ndarray, *args
     ) -> np.float32:
-        """Wrapper function for the poisson log likelihood, which is used for the scipy optimization routine. It uses f and beta to as parameters and takes the other parameters as given.
+        """Wrapper function for the poisson log likelihood, which is used for
+        the scipy optimization routine. It uses f and beta to as parameters and
+        takes the other parameters as given.
 
         Args:
             params (np.ndarray): parameter vector, which is used for the optimization.
@@ -605,7 +633,8 @@ class PoissonReducedRankTimeIndependentWordWeights(BaseEstimator):
     def wrapper_update_b_poisson_log_likelihood(
         params: np.ndarray, *args
     ) -> np.float32:
-        """Wrapper function used to update the parameter vector b and alpha, taking the other parameters as given.
+        """Wrapper function used to update the parameter vector b and alpha,
+        taking the other parameters as given.
 
         Args:
             params (np.ndarray): Parameter vector for the optimization. *args is a tuple of length 3 and used to feed the "given" parameters (beta, f, y).

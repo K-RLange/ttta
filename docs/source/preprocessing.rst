@@ -1,10 +1,10 @@
-ttta.preprocessing package
+Preprocessing
 ==========================
 
 Submodules
 ----------
 
-ttta.preprocessing.chunk\_creation module
+Chunk Creation
 -----------------------------------------
 
 .. automodule:: ttta.preprocessing.chunk_creation
@@ -12,7 +12,7 @@ ttta.preprocessing.chunk\_creation module
    :undoc-members:
    :show-inheritance:
 
-ttta.preprocessing.preprocess module
+Preprocessing
 ------------------------------------
 
 .. automodule:: ttta.preprocessing.preprocess
@@ -20,7 +20,7 @@ ttta.preprocessing.preprocess module
    :undoc-members:
    :show-inheritance:
 
-ttta.preprocessing.schemas module
+Schemas
 ---------------------------------
 
 .. automodule:: ttta.preprocessing.schemas
@@ -28,7 +28,7 @@ ttta.preprocessing.schemas module
    :undoc-members:
    :show-inheritance:
 
-ttta.preprocessing.semantic module
+Semantic Preprocessing
 ----------------------------------
 
 .. automodule:: ttta.preprocessing.semantic
@@ -36,7 +36,7 @@ ttta.preprocessing.semantic module
    :undoc-members:
    :show-inheritance:
 
-ttta.preprocessing.settings module
+Settings
 ----------------------------------
 
 .. automodule:: ttta.preprocessing.settings

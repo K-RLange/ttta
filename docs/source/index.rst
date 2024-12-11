@@ -13,9 +13,7 @@ Contents
 
 .. toctree::
 
-   ttta
    usage
-   modules
    evaluation
    methods
    preprocessing

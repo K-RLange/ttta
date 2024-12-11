@@ -22,9 +22,9 @@ logger = logging.getLogger(__name__)
 
 
 class CustomDataset(Dataset):
-    """
-    This class is used to create a custom dataset for the Roberta model. It inherits from torch.utils.data.Dataset.
-    
+    """This class is used to create a custom dataset for the Roberta model. It
+    inherits from torch.utils.data.Dataset.
+
     Methods
     -------
         __init__(data: List[str], tokenizer, max_length=128, truncation=True, padding=True)
@@ -32,7 +32,7 @@ class CustomDataset(Dataset):
         __len__()
             This method is used to get the length of the dataset.
         __getitem__(idx)
-            This method is used to get the item at a specific index.  
+            This method is used to get the item at a specific index.
     """
     def __init__(
             self, 
@@ -63,8 +63,7 @@ class CustomDataset(Dataset):
         return len(self.tokenized_data.input_ids)
 
     def __getitem__(self, idx):
-        """
-        Retrieves the item at the specified index.
+        """Retrieves the item at the specified index.
 
         Parameters:
             idx (int): Index of the item to retrieve.
@@ -84,8 +83,7 @@ class CustomDataset(Dataset):
         }
 
 class RobertaTrainer:
-    """
-    This class is used to train a Roberta model.
+    """This class is used to train a Roberta model.
 
     Methods
     -------
@@ -190,8 +188,7 @@ class RobertaTrainer:
             data: List[str],
             output_dir: Optional[Union[str, Path]] = None
             ) -> None:
-        """
-        This method is used to train the model.
+        """This method is used to train the model.
 
         Args:
             data (List[str]): List of strings to train the model on.
@@ -203,7 +200,7 @@ class RobertaTrainer:
             >>> model.train(data=["The brown fox jumps over the lazy dog", "The brown fox jumps over the lazy dog", "Hello world!"], output_dir="../../output/MLM_roberta")
             Epoch: 0 | Loss: 1.1637206077575684 | Perplexity: 3.2020153999328613
             Epoch: 1 | Loss: 0.6941609382629395 | Perplexity: 2.0011680126190186
-            Epoch: 2 | Loss: 0.4749067425727844 | Perplexity: 1.608262062072754  
+            Epoch: 2 | Loss: 0.4749067425727844 | Perplexity: 1.608262062072754
         """
         
         train_data, test_data = train_test_split(
@@ -283,8 +280,7 @@ class RobertaTrainer:
 
 
 class RobertaEmbedding:
-    """
-    This class is used to infer vector embeddings from a document.
+    """This class is used to infer vector embeddings from a document.
 
     Methods
     -------
@@ -326,9 +322,7 @@ class RobertaEmbedding:
         return self._tokens
 
     def _roberta_case_preparation(self) -> None:
-        """
-        This method is used to prepare the BERT model for the inference.
-        """
+        """This method is used to prepare the BERT model for the inference."""
         model_path = self.model_path if os.path.exists(self.model_path) else 'roberta-base'
         self.tokenizer = RobertaTokenizer.from_pretrained(model_path)
         self.model = RobertaModel.from_pretrained(
@@ -345,8 +339,8 @@ class RobertaEmbedding:
         self.vocab = True
 
     def infer_vector(self, doc:str, main_word:str) -> Optional[torch.Tensor]:
-        """
-        This method is used to infer the vector embeddings of a word from a document.
+        """This method is used to infer the vector embeddings of a word from a
+        document.
 
         Args:
             doc (str): Document to process
@@ -386,8 +380,8 @@ class RobertaEmbedding:
 
     
     def infer_mask_logits(self, doc:str) -> Optional[torch.Tensor]:
-        """
-        This method is used to infer the logits of the mask token in a document.
+        """This method is used to infer the logits of the mask token in a
+        document.
 
         Args:
             doc (str): Document to process where the mask token is present.
@@ -427,8 +421,7 @@ class RobertaEmbedding:
 
 
 class RobertaInference:
-    """
-    Wrapper class for the RobertaEmbedding class for inference.
+    """Wrapper class for the RobertaEmbedding class for inference.
 
     Methods
     -------
@@ -472,9 +465,8 @@ class RobertaInference:
     
     
     def _roberta_case_preparation(self) -> None:
-        """
-        This method is used to prepare the Roberta model for the inference.
-        """
+        """This method is used to prepare the Roberta model for the
+        inference."""
         model_path = self.model_path if self.model_path is not None else 'roberta-base'
         self.tokenizer = RobertaTokenizer.from_pretrained(model_path)
         self.word_vectorizor = RobertaEmbedding(pretrained_model_path=model_path)
@@ -488,8 +480,8 @@ class RobertaInference:
             mask : bool = False
             ) -> torch.Tensor:
         
-        """
-        This method is used to infer the vector embeddings of a word from a document.
+        """This method is used to infer the vector embeddings of a word from a
+        document.
 
         Args:
             main_word (str): Word to get the vector embeddings for
@@ -632,8 +624,7 @@ class RobertaInference:
 
 
 def train_test_split(data: List[str], test_ratio=0.2, random_seed=None):
-    """
-    Split the data into train and test sets.
+    """Split the data into train and test sets.
 
     Args:
         data (List[str]): The data to split.

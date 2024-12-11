@@ -1,8 +1,9 @@
 import numpy as np
-
+"""Implements the calculation of word importance for topics in LDA."""
 def calculate_importance(word_topic_matrix: np.ndarray) -> np.ndarray:
     """
-    Calculate the importance of words for each topic, weighting down words frequently used in multiple topics
+    Calculate the importance of words for each topic, weighting down words frequently used in multiple topics.
+
     Args:
         word_topic_matrix: word-topic matrix
     Returns:
