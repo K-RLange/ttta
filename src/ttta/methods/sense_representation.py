@@ -3,7 +3,7 @@ import torch
 from pathlib import Path
 from transformers import BertTokenizer, BertModel
 from transformers import logging as lg
-from src.ttta.preprocessing.schemas import WordSenseEmbedding
+from ..preprocessing.schemas import WordSenseEmbedding
 from typing import Union, List
 import nltk
 import logging
@@ -24,8 +24,8 @@ for corpus in ['wordnet', 'omw-1.4', 'brown']:
 
 
 class VectorEmbeddings:
-    """
-    This class is used to infer the vector embeddings of a word from a sentence.
+    """This class is used to infer the vector embeddings of a word from a
+    sentence.
 
     Methods
     -------
@@ -44,8 +44,8 @@ class VectorEmbeddings:
             self,
             pretrained_model_path: Union[str, Path] = None,
     ):
-        """
-        Initialize the class with the pretrained model path.
+        """Initialize the class with the pretrained model path.
+
         Args:
             pretrained_model_path: Path to the pretrained model.
         """
@@ -87,9 +87,7 @@ class VectorEmbeddings:
         return self._tokens
 
     def _bert_case_preparation(self) -> None:
-        """
-        This method is used to prepare the BERT model for the inference.
-        """
+        """This method is used to prepare the BERT model for the inference."""
         model_path = self.model_path if self.model_path is not None else 'bert-base-uncased'
         self.bert_tokenizer = BertTokenizer.from_pretrained(model_path)
         self.model = BertModel.from_pretrained(
@@ -141,8 +139,8 @@ class VectorEmbeddings:
 
 
 class SenseRepresentation:
-    """
-    This class is used to recreate the sense representation for a given word in a given period of time.
+    """This class is used to recreate the sense representation for a given word
+    in a given period of time.
 
     This implementation is based on the fine-grained sense representations with deep contextualized word embeddings,
     i.e., represent each sense as a distinguished sense embedding. We directly adopt the fine-grained senses
@@ -168,8 +166,8 @@ class SenseRepresentation:
             model_path: Union[str, Path] = None,
 
     ):
-        """
-        Initialize the class with the target word and the model path.
+        """Initialize the class with the target word and the model path.
+
         Args:
             target_word: The main word to extract the sense representation for.
             model_path: The path to the pretrained model.
@@ -178,8 +176,8 @@ class SenseRepresentation:
         self.target_word = target_word
 
     def _infer_sentence_embedding(self, sense_examples: List[str]) -> torch.Tensor:
-        """
-        Infer the embeddings of the give_word in each example of the sense.
+        """Infer the embeddings of the give_word in each example of the sense.
+
         Args:
             sense_examples: List of examples for the sense.
         Returns: torch.Tensor
@@ -191,8 +189,8 @@ class SenseRepresentation:
             )
 
     def _get_senses(self) -> List[str]:
-        """
-        Get the senses for the target word.
+        """Get the senses for the target word.
+
         Returns: List[str]
         """
         synsets = wn.synsets(self.target_word)
@@ -200,8 +198,8 @@ class SenseRepresentation:
         return senses
 
     def get_sentence_examples(self, sense: int, min_examples=5):
-        """
-        Extract or generate at least min_examples sentence examples for a specific sense of a word in WordNet.
+        """Extract or generate at least min_examples sentence examples for a
+        specific sense of a word in WordNet.
 
         Args:
         - sense (int): The sense number of the word.
@@ -240,8 +238,9 @@ class SenseRepresentation:
         return examples[:min_examples]
 
     def infer_representation(self) -> List[WordSenseEmbedding]:
-        """
-        Infer the mean vector embedding for the given word across all the examples in the senses.
+        """Infer the mean vector embedding for the given word across all the
+        examples in the senses.
+
         Returns: WordSenseEmbedding object.
         """
         senses = self._get_senses()

@@ -6,8 +6,7 @@ import numpy as np
 
 
 class Word2VecTrainer:  
-    """
-    Wrapper class for gensim.models.Word2Vec to train a Word2Vec model.
+    """Wrapper class for gensim.models.Word2Vec to train a Word2Vec model.
 
     Methods
     -------
@@ -42,8 +41,7 @@ class Word2VecTrainer:
             cls,
             model_path: Union[str, Path]
             ):
-        """
-        Load a pretrained Word2Vec model
+        """Load a pretrained Word2Vec model.
 
         Args:
             model_path: Path to the pretrained model
@@ -101,9 +99,8 @@ class Word2VecTrainer:
             update: bool = False, # update=True to update the model
             **kwargs
             ):
-        """
-        Train the Word2Vec model on the given data
-        
+        """Train the Word2Vec model on the given data.
+
         Args:
             data: List of documents
             epochs: Number of epochs
@@ -145,8 +142,7 @@ class Word2VecTrainer:
 
     
     def get_model(self) -> Word2Vec:
-        """
-        Get the trained model
+        """Get the trained model.
 
         Returns:
             model: The trained Word2Vec model
@@ -154,8 +150,7 @@ class Word2VecTrainer:
         return self.model
     
     def get_vocab(self) -> List[str]:
-        """
-        Get the vocabulary of the trained model
+        """Get the vocabulary of the trained model.
 
         Returns:
             vocab: The vocabulary of the model
@@ -165,8 +160,7 @@ class Word2VecTrainer:
     
 
 class Word2VecAlign:
-    """
-    Wrapper class for gensim.models.Word2Vec to align Word2Vec models.
+    """Wrapper class for gensim.models.Word2Vec to align Word2Vec models.
 
     Methods
     -------
@@ -193,8 +187,7 @@ class Word2VecAlign:
             reference: int = -1,
             method: str = "procrustes",
             ) -> List[Word2Vec]:
-        """
-        Align the models
+        """Align the models.
 
         Args: 
             reference: Index of the reference model
@@ -228,8 +221,7 @@ class Word2VecAlign:
 
 
 class Word2VecInference:
-    """
-    Wrapper class for gensim.models.Word2Vec for Inference.
+    """Wrapper class for gensim.models.Word2Vec for Inference.
 
     Methods
     -------
@@ -255,8 +247,7 @@ class Word2VecInference:
 
 
     def infer_vector(self, word:str, norm = False) -> List[float]:
-        """
-        Infer the vector of a word
+        """Infer the vector of a word.
 
         Args:
             word: The word to infer the embedding vector of
@@ -269,8 +260,7 @@ class Word2VecInference:
     
     
     def get_similarity(self, word1: str, word2: str) -> float:
-        """
-        Get the cosine similarity between two words' embedding vectors
+        """Get the cosine similarity between two words' embedding vectors.
 
         Args:
             word1: The first word
@@ -292,8 +282,8 @@ class Word2VecInference:
             k: int = 10,
             pos_tag: Union[bool, str, List[str]] = False
             ):
-        """
-        Get the top k most similar words to a word in the vocabulary of the model.
+        """Get the top k most similar words to a word in the vocabulary of the
+        model.
 
         Args:
             main_word: The word to get the top k most similar words of
@@ -381,11 +371,12 @@ def smart_procrustes_align_gensim(base_embed, other_embed, words=None):
 # ------------------- intersection_align_gensim --------------------
 # from: https://gist.github.com/quadrismegistus/09a93e219a6ffc4f216fb85235535faf
 def intersection_align_gensim(m1, m2, words=None):
-    """
-    Intersect two gensim word2vec models, m1 and m2.
-    Only the shared vocabulary between them is kept.
-    If 'words' is set (as list or set), then the vocabulary is intersected with this list as well.
-    Indices are re-organized from 0..N in order of descending frequency (=sum of counts from both m1 and m2).
+    """Intersect two gensim word2vec models, m1 and m2. Only the shared
+    vocabulary between them is kept. If 'words' is set (as list or set), then
+    the vocabulary is intersected with this list as well. Indices are re-
+    organized from 0..N in order of descending frequency (=sum of counts from
+    both m1 and m2).
+
     These indices correspond to the new syn0 and syn0norm objects in both gensim models:
         -- so that Row 0 of m1.syn0 will be for the same word as Row 0 of m2.syn0
         -- you can find the index of any word on the .index2word list: model.index2word.index(word) => 2

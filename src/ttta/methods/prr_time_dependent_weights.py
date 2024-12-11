@@ -5,22 +5,26 @@ from pathlib import Path
 import pickle
 from tqdm.autonotebook import trange, tqdm
 from scipy.optimize import minimize
-from .prr_time_independent_weights import PoissonReducedRankTimeIndependentWordWeights
+from .prr_time_independent_weights import PoissonReducedRankTimeIndependentWordWeights, PoissonReducedRankParameters
 from typing import Optional
-from .structures import PoissonReducedRankParameters
-
 
 class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
-    """This model is the poisson reduced rank model with time dependent wword weights. In this model, the word weights are allowed to depend on time t.
-    The model is optimized in two steps. First, the model runs through an identification step in which the fussed lasso problem in eq. 5 is solved (constrained model/log-likelihood optimization).
-    In the second step, the model is optimized in the estimation step (unconstrained log-likelihood) optimization.
+    """This model is the poisson reduced rank model with time dependent word
+    weights. In this model, the word weights are allowed to depend on time t.
+    The model is optimized in two steps. First, the model runs through an
+    identification step in which the fussed lasso problem in eq. 5 is solved
+    (constrained model/log-likelihood optimization). In the second step, the
+    model is optimized in the estimation step (unconstrained log-likelihood)
+    optimization.
+
     Note:
         - Currently, only balanced data is supported, i.e. each document is available for the same time indices t.
         - For now, the last term in eq. 5, involving the time lags of word weights, is not implemented. Optimization of the constrained model only happens on the first two terms in eq.5.
     """
 
     def __init__(self, I: int, T: int, J: int, K: int = 2, **kwargs):
-        """Initializes a Penalized Reduced Rank Model with time dependent word weights.
+        """Initializes a Penalized Reduced Rank Model with time dependent word
+        weights.
 
         Args:
             K (int, optional): Number of word vector dimensions. Defaults to 2.
@@ -82,7 +86,8 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
         date_column: str = "date",
         individual_column: str = "individual",
     ) -> dict:
-        """Calculates I, J, T for a given dataframe, which can be used for the model initialization.
+        """Calculates I, J, T for a given dataframe, which can be used for the
+        model initialization.
 
         Args:
             texts (pd.DataFrame): Dataframe containing the data
@@ -107,7 +112,8 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
     def _compute_roh1_matrix(
         roh: np.ndarray, delta: np.ndarray, b: np.ndarray
     ) -> np.ndarray:
-        """Computes the parameter matrix roh_{1,j}^k used in the fussed lasso optimization problem
+        """Computes the parameter matrix roh_{1,j}^k used in the fussed lasso
+        optimization problem.
 
         Args:
             roh (np.ndarray): hyper parameter used for the optimization of the fussed lasso problem. Must be of shape (k,)
@@ -125,7 +131,8 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
     def _compute_roh2_matrix(
         roh: np.ndarray, delta: np.ndarray, b: np.ndarray
     ) -> np.ndarray:
-        """Computes the parameter matrix roh_{2,j}^k used in the fussed lasso optimization problem
+        """Computes the parameter matrix roh_{2,j}^k used in the fussed lasso
+        optimization problem.
 
         Args:
             roh (np.ndarray): hyper parameter used for the optimization of the fussed lasso problem. Must be of shape (k,)
@@ -142,7 +149,8 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
     def _convert_params_2Dto3D(
         self, alpha: np.ndarray, beta: np.ndarray, b: np.ndarray, f: np.ndarray
     ) -> None:
-        """Converts the parameters from the first step [S1], which are in 2D matrices to 3D parameter matrices
+        """Converts the parameters from the first step [S1], which are in 2D
+        matrices to 3D parameter matrices.
 
         Args:
             alpha (np.ndarray): array containing a_j
@@ -162,7 +170,8 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
 
     @staticmethod
     def get_log_likelihood(y: np.ndarray, mu: np.ndarray) -> np.ndarray:
-        """Retrieves the log likelihood matrix, where each element is computed by -mu + y*log(mu)
+        """Retrieves the log likelihood matrix, where each element is computed
+        by -mu + y*log(mu)
 
         Args:
             y (np.ndarray): matrix containing the real token counts. Expected shape (J, I*T)
@@ -177,7 +186,7 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
     def _fussed_lasso_computation(
         self, roh: np.ndarray, matrix: np.ndarray
     ) -> np.float32:
-        """Function can be used for the fussed lasso terms of the model
+        """Function can be used for the fussed lasso terms of the model.
 
         Args:
             roh (np.ndarray): parameter matrix of the the form (J,K)
@@ -204,7 +213,8 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
         b: np.ndarray,
         f: np.ndarray,
     ) -> np.float32:
-        """Computes the sum of the loss function for the fussed lasso problem given in formula (5) of the paper.
+        """Computes the sum of the loss function for the fussed lasso problem
+        given in formula (5) of the paper.
 
         Args:
             y (np.ndarray): matrix of y token counts. Must be of the form (J, T*I)
@@ -237,7 +247,8 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
         alpha: Optional[np.ndarray] = None,
         beta: Optional[np.ndarray] = None,
     ):
-        """Uses the input parameters of the model to compute the mu matrix for the Poisson Matrix
+        """Uses the input parameters of the model to compute the mu matrix for
+        the Poisson Matrix.
 
         Args:
             b (np.ndarray): parameter matrix containing b_jt. Must be of form (K, J_tokens, T_timepoints)
@@ -277,8 +288,12 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
         tol: float = 1e5,
         warm_start: Optional[PoissonReducedRankParameters] = None,
     ):
-        """Fits a Poisson Reduced Rank model with time dependent word weigths to the given term-document-matrix (tdm). The optimization routine implemented in this paper is described in Jentsch et. al. 'Time-dependent Poisson reduced rank models for political text data analysis' section 2.3.
-            For the unpenalized/unconstrained model, please see the class UnconstrainedPoissonReducedRankTimeDependentWordWeights.
+        """Fits a Poisson Reduced Rank model with time dependent word weigths
+        to the given term-document-matrix (tdm). The optimization routine
+        implemented in this paper is described in Jentsch et. al. 'Time-
+        dependent Poisson reduced rank models for political text data analysis'
+        section 2.3. For the unpenalized/unconstrained model, please see the
+        class UnconstrainedPoissonReducedRankTimeDependentWordWeights.
 
         Args:
             texts (pd.DataFrame): A pandas DataFrame containing the columns text_column, date_column and individual_column containing the documents and their respective dates. The column combination of individual_column and date_column leads to a panel like data structure.
@@ -356,14 +371,16 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
         return current_params
 
     def _reparameterize(self):
-        """Reparameterizes the variables beta, alpha, b and f  according to step [S2] (iv)"""
+        """Reparameterizes the variables beta, alpha, b and f  according to
+        step [S2] (iv)"""
         self.alpha = self.alpha + np.sum(self.beta) / self.I * self.T
         self.beta = self.beta - np.sum(self.beta) / self.I * self.T
         self.b = self.b * np.sqrt(np.sum(self.f**2) / self.I * self.T)
         self.f = self.f / np.sqrt(np.sum(self.f**2) / self.I * self.T)
 
     def _update_f_and_beta(self):
-        """Updates the parameter vectors f and beta for the identification of th emodel
+        """Updates the parameter vectors f and beta for the identification of
+        th emodel.
 
         Args:
             y (np.ndarray): y token matrix of the form (J,I*T)
@@ -372,7 +389,8 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
         def wrapper_optim_f_and_beta_given_alpha_and_b(
             beta_and_f: np.ndarray, *args
         ) -> np.float32:
-            """Function used as a wrapper function in scipy optimize. Since scipy.optimize only takes 1D arrays
+            """Function used as a wrapper function in scipy optimize. Since
+            scipy.optimize only takes 1D arrays.
 
             Args:
                 beta_and_f (np.ndarray): flattened np.ndarray. The first I*T values correspond to the vector beta and the remaining values to f. F is reshaped for computation of the loss.
@@ -423,7 +441,7 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
         self.beta = new_beta.reshape(self.beta.shape)
 
     def _update_b_and_alpha(self):
-        """Updates the internal parameters alpha and b given f and beta
+        """Updates the internal parameters alpha and b given f and beta.
 
         Args:
             y (np.ndarray): token matrix of the form (J, I*T)
@@ -432,7 +450,8 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
         def wrapper_optim_b_and_alpha_given_beta_and_f(
             alpha_and_b: np.ndarray, *args
         ) -> np.float32:
-            """Function used as a wrapper function in scipy optimize. Since scipy.optimize only takes 1D arrays
+            """Function used as a wrapper function in scipy optimize. Since
+            scipy.optimize only takes 1D arrays.
 
             Args:
                 alpha_and_b (np.ndarray): flattened np.ndarray. The first J values correspond to the vector alpha and the remaining values to the flattend b. b is reshaped for computation of the loss.
@@ -522,7 +541,8 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
         raise NotImplementedError
 
     def get_params(self) -> dict:
-        """Returns the parameters for the poisson reduced rank model with independent word weights
+        """Returns the parameters for the poisson reduced rank model with
+        independent word weights.
 
         Returns:
             dict: Dictionary containing the parameter arrays
@@ -536,8 +556,12 @@ class PenalizedPoissonReducedRankTimeDependentWordWeights(BaseEstimator):
         }
 
     def set_params(self, **params) -> None:
-        """sets the internal parameters of the poisson reduced rank model. The **params should contains 'alpha', 'beta', 'b' and 'f'. 'K' is not allowed, since it would change the whole metho due to the increase in dimensions.
-        The dimensionalities are not checked, please make sure that the np.ndarrays are of the correct shape.
+        """Sets the internal parameters of the poisson reduced rank model.
+
+        The **params should contains 'alpha', 'beta', 'b' and 'f'. 'K'
+        is not allowed, since it would change the whole metho due to the
+        increase in dimensions. The dimensionalities are not checked,
+        please make sure that the np.ndarrays are of the correct shape.
         """
 
         if "alpha" in params:

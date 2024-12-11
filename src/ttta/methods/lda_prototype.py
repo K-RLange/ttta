@@ -1,3 +1,4 @@
+"""This module implements the `LDAPrototype model <https://doi.org/10.7717/peerj-cs.2279>`_, which trains multiple LDA models"""
 import pickle
 import warnings
 from multiprocessing.pool import ThreadPool as Pool
@@ -15,15 +16,24 @@ from tqdm import tqdm
 from matplotlib.backends.backend_pdf import PdfPages
 from .topic_matching import TopicClusters
 from ..preprocessing.preprocess import create_dtm, get_word_and_doc_vector
+from pyLDAvis import prepare, save_html
+import webbrowser
 faulthandler.enable()
 
-
 class LDAPrototype:
+    """
+    This class allows to use either a normal Latent Dirichlet Allocation or
+    the LDAPrototype model, which trains multiple LDA models and selects the
+    best one based on similarity measures.
+    """
+
     def __init__(self, K: int, alpha: float = None, gamma: float = None, prototype: int = 10, topic_threshold: List[Union[int, float]] = None,
                  prototype_measure: Union[str, Callable] = "jaccard", min_count: int = 2, max_assign: bool = False, verbose: int = 1):
         """
-        Implements the LDAPrototype model, which trains multiple LDA models and selects the best one based on similarity measures.
-        The LDAs are trained in C.
+        Implement the LDAPrototype model, which trains multiple LDA models
+        and selects the best one based on similarity measures. The LDAs are
+        trained in C.
+
         Args:
             K: Number of topics
             alpha: alpha parameter for the LDA
@@ -36,6 +46,8 @@ class LDAPrototype:
                         or should it be chosen randomly based on the word-topic probabilities (default)?
             verbose: Verbosity level. 0 does not print anything, 1 prints runtime-relevant information, 2 and higher
                      shows debugging information.
+        Returns:
+            None
         """
         if not isinstance(K, int):
             try:
@@ -143,8 +155,8 @@ class LDAPrototype:
         self._last_end = [0]
 
     def _create_lda_parameters(self, param: Union[np.ndarray, float, None]) -> np.ndarray:
-        """
-        Creates a parameter List for LDA from a float, a numpy array or automatically from K
+        """Create a parameter List for LDA from a float, a numpy array or automatically from K.
+
         Args:
             param: parameter - either alpha or gamma
         Returns:
@@ -175,8 +187,10 @@ class LDAPrototype:
 
     def _create_dtm(self, texts: List[List[str]]) -> None:
         """
-        Creates a document-term matrix from a list of texts and updates the existing dtm if there is one.
-        Stores both the dtm and the vocabulary in the class.
+        Create a document-term matrix from a list of texts and updates the
+        existing document topic matrix if there is one. Stores both the dtm and
+        the vocabulary in the class.
+
         Args:
             texts: list of texts
         Returns:
@@ -190,8 +204,9 @@ class LDAPrototype:
 
     @staticmethod
     def _get_word_and_doc_vector(dtm: Union[csr_array, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Turns a document-term matrix into index vectors. The word vector contains the vocabulary index for each word
+        """Turn a document-term matrix into index vectors.
+
+        The word vector contains the vocabulary index for each word
         occurrence including multiple occurrences in one text. The document vector contains the document index for each
         word occurrence including multiple occurrences in one document.
         Args:
@@ -203,9 +218,9 @@ class LDAPrototype:
         return get_word_and_doc_vector(dtm)
 
     def fit(self, texts: List[List[str]], epochs: int = 200, first_chunk: bool = True,
-            chunk_end: int = None, memory_start: int = 0, workers=1) -> None:
-        """
-        LDA Gibbs Sampler that uses a C-implementation under the hood
+            chunk_end: int = None, memory_start: int = 0, workers: int = 1) -> None:
+        """LDA Gibbs Sampler that uses a C-implementation under the hood.
+
         Args:
             texts: list of tokenized texts
             epochs: number of epochs to train the models for
@@ -304,8 +319,8 @@ class LDAPrototype:
     def _calculate_prototype(self, word_vec: np.ndarray, doc_vec: np.ndarray, word_topic_matrix: np.ndarray,
                              document_topic_matrix: np.ndarray, v_sum: np.ndarray, workers: int, epochs: int = 200,
                              period_start: int = 0):
-        """
-        Calculates the LDAPrototype for the texts given in fit().
+        """Calculate the LDAPrototype for the texts given in fit().
+
         Args:
             word_vec: vector of word ids in the vocabulary for each word
             doc_vec: vector of document ids for each word
@@ -375,7 +390,8 @@ class LDAPrototype:
                       document_topic_matrix: np.ndarray, v_sum: np.ndarray, epochs: int = 200) -> (
             Tuple)[np.ndarray, np.ndarray, np.ndarray]:
         """
-        LDA Gibbs Sampler that uses a C-implementation under the hood and edits the inputs in place
+        LDA Gibbs Sampler that uses a C-implementation under the hood and edits the inputs in place.
+
         Args:
             word_vec: word vector
             assignment_vec: assignment vector
@@ -411,7 +427,8 @@ class LDAPrototype:
 
     def get_word_topic_matrix(self, word_vec: np.ndarray = None, assignment_vec: np.ndarray = None) -> np.ndarray:
         """
-        Create a word-topic matrix from a word vector and an assignment vector
+        Create a word-topic matrix from a word vector and an assignment vector.
+
         Args:
             word_vec: word vector
             assignment_vec: assignment vector
@@ -436,22 +453,28 @@ class LDAPrototype:
             raise ValueError("word_vec and assignment_vec must have the same shape!")
         word_topic_matrix = np.zeros((len(self._vocab), self._K), dtype=np.uint64)
         load_wk_mat_func(word_vec, assignment_vec, word_topic_matrix, self._K)
-        return word_topic_matrix.copy()
+        return word_topic_matrix
 
-    def get_document_topic_matrix(self, doc_vec: np.ndarray, assignment_vec: np.ndarray) -> np.ndarray:
+    def get_document_topic_matrix(self, doc_vec: np.ndarray = None,
+                                  assignment_vec: np.ndarray = None) -> np.ndarray:
         """
-        Create a word-topic matrix from a word vector and an assignment vector
+        Create a word-topic matrix from a word vector and an assignment vector.
+
         Args:
             doc_vec: document vector
             assignment_vec: assignment vector
         Returns:
             document_topic_matrix: document-topic matrix
         """
+        if doc_vec is None:
+            doc_vec = self._doc_vec
         if not isinstance(doc_vec, np.ndarray):
             try:
                 doc_vec = np.array(doc_vec, dtype=np.uint64)
             except ValueError:
                 raise TypeError("doc_vec must be a numpy array!")
+        if assignment_vec is None:
+            assignment_vec = self._assignments
         if not isinstance(assignment_vec, np.ndarray):
             try:
                 assignment_vec = np.array(assignment_vec, dtype=np.uint32)
@@ -462,16 +485,16 @@ class LDAPrototype:
         doc_vec = doc_vec - min(doc_vec)  # Getting a zero-based index
         document_topic_matrix = np.zeros((len(set(doc_vec)), self._K), dtype=np.uint64)
         load_dk_mat_func(doc_vec, assignment_vec, document_topic_matrix, self._K)
-        return document_topic_matrix.copy()
+        return document_topic_matrix
 
     def top_words(self, number: int = 5, topic: int = None, importance: Union[bool, np.ndarray] = True,
                   word_topic_matrix: np.ndarray = None, return_as_data_frame: bool = True) -> Union[List[str], List[List[str]], pd.DataFrame]:
         """
-        Get the top words for a topic
+        Get the most relevant and distinctive words for a topic.
         Args:
             number: number of top words to return
             topic: topic to return top words for or None for all topics
-            importance: bool: should the importance or absolute frequency be used to determine the top words
+            importance: should the importance or absolute frequency be used to determine the top words
                         np.array: importance of words for each topic
             word_topic_matrix: word-topic matrix
             return_as_data_frame: should the result be returned as a pandas DataFrame (Default) or a list?
@@ -523,7 +546,8 @@ class LDAPrototype:
     def wordclouds(self, topic: int = None, number: int = 50, path: str = "wordclouds.pdf", height: int = 600, width: int = 700,
                    show: bool = True, word_topic_matrix: np.ndarray = None) -> None:
         """
-        Create a word cloud from a topic
+        Create a word cloud from a topic using the wordcloud library.
+
         Args:
             topic: The topic to create a word cloud for or None for all topics
             number: number of top words to include in the word cloud
@@ -609,43 +633,48 @@ class LDAPrototype:
                     plt.close(fig)
 
     def get_assignment_vec(self) -> np.ndarray:
-        """
+        """Give back a list of topic assignments.
+
         Returns:
             assignment vector
         """
         return self._assignments.copy()
 
     def get_word_vec(self) -> np.ndarray:
-        """
+        """Give back the vocabulary index of all words in the corpus.
+
         Returns:
             word vector
         """
         return self._word_vec.copy()
 
     def get_doc_vec(self) -> np.ndarray:
-        """
+        """Give back a list detailing, to which document every word belongs.
+
         Returns:
             document vector
         """
         return self._doc_vec.copy()
 
     def get_vocab(self) -> List[str]:
-        """
+        """Give back a list of all words in the vocabulary.
+
         Returns:
             vocabulary
         """
         return self._vocab.copy()
 
     def get_params(self) -> dict:
-        """
+        """Give back a dictionary of all parameters of the model.
+
         Returns:
             all parameters as a dictionary
         """
         return self.__dict__.copy()
 
     def set_params(self, params: dict) -> None:
-        """
-        Sets all parameters given py a dictionary to the parameters of the same name in the class
+        """Set all parameters given py a dictionary to the parameters of the same name in the class.
+
         Returns:
             None
         """
@@ -654,8 +683,8 @@ class LDAPrototype:
         self.__dict__.update(params)
 
     def save(self, path: str) -> None:
-        """
-        Saves the model to a pickle file
+        """Save the model to a pickle file.
+
         Returns:
             None
         """
@@ -664,8 +693,8 @@ class LDAPrototype:
         pickle.dump(self, open(path, "wb"))
 
     def load(self, path: str) -> None:
-        """
-        Loads a model from a pickle file
+        """Load a model from a pickle file.
+
         Returns:
             None
         """
@@ -675,15 +704,55 @@ class LDAPrototype:
         self.__dict__ = loaded.__dict__
 
     def shrink_model(self, new_start_index: int) -> None:
-        """
-        Shrinks the model to a new start index to save memory
-        """
+        """Shrinks the model to a new start index to save memory."""
         # todo implement
         raise NotImplementedError
 
     def is_trained(self) -> bool:
-        """
+        """Check if the model is trained.
+
         Returns:
             Boolean if the model has been trained before
         """
         return self._is_trained
+
+    def visualize(self, number: int = 30, path: str = "ldaviz.html",
+                  open_browser: bool = True) -> None:
+        """
+        Visualizes the LDAPrototype model using pyLDAvis.
+
+        Args:
+            number: The number of top words to include in the visualization.
+            path: The path to save the visualization to.
+            open_browser: Whether to open the visualization in the browser.
+        Returns:
+            None
+        """
+        if not isinstance(number, int):
+            try:
+                if number == int(number):
+                    number = int(number)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("number must be an integer!")
+        if not isinstance(path, str):
+            raise TypeError("path must be a string!")
+        if not isinstance(open_browser, bool):
+            raise TypeError("open_browser must be a boolean!")
+        word_topic_matrix = self.get_word_topic_matrix()
+        topic_term_dists = (word_topic_matrix /
+                            word_topic_matrix.sum(axis=0, keepdims=True)).transpose()
+        if any(topic_term_dists.sum(axis=1) - 1 == 0) and sum(topic_term_dists.sum(axis=1) - 1) < 1e-10:
+            topic_term_dists[:, 0] -= topic_term_dists.sum(axis=1) - 1
+        document_topic_matrix = self.get_document_topic_matrix()
+        doc_topic_dists = (document_topic_matrix /
+                            document_topic_matrix.sum(axis=1,
+                                                      keepdims=True))
+        if any(doc_topic_dists.sum(axis=1) - 1 == 0) and sum(doc_topic_dists.sum(axis=1) - 1) < 1e-10:
+            doc_topic_dists[:, 0] -= doc_topic_dists.sum(axis=1) - 1
+        term_frequency = word_topic_matrix.sum(axis=1)
+        ldaviz_data = prepare(topic_term_dists, doc_topic_dists, self._len_of_docs, self.get_vocab(), term_frequency, number)
+        save_html(ldaviz_data, path)
+        if open_browser:
+            webbrowser.open_new_tab(path)

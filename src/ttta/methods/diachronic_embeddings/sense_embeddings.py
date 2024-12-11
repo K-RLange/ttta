@@ -11,8 +11,8 @@ from typing import Union
 
 
 class VectorEmbeddings:
-    """
-    This class is used to infer the vector embeddings of a word from a sentence.
+    """This class is used to infer the vector embeddings of a word from a
+    sentence.
 
     Methods
     -------
@@ -46,9 +46,7 @@ class VectorEmbeddings:
         return self._tokens
 
     def _bert_case_preparation(self) -> None:
-        """
-        This method is used to prepare the BERT model for the inference.
-        """
+        """This method is used to prepare the BERT model for the inference."""
         model_path = self.model_path if self.model_path is not None else 'bert-base-uncased'
         self.bert_tokenizer = BertTokenizer.from_pretrained(model_path)
         self.model = BertModel.from_pretrained(
@@ -95,8 +93,8 @@ class VectorEmbeddings:
 
 
 class ExtractSenseEmbeddings:
-    """
-    Wrapper class for the Vector embeddings that is used to extract the embeddings for all the senses.
+    """Wrapper class for the Vector embeddings that is used to extract the
+    embeddings for all the senses.
 
     Attributes
     ----------
@@ -121,7 +119,6 @@ class ExtractSenseEmbeddings:
             This method is used to infer the mean vector embeddings for all the sentences in the sense.
         create_sense_embeddings()
             This method is used to extract the embeddings for all the senses.
-
     """
     def __init__(
             self
@@ -151,10 +148,9 @@ class ExtractSenseEmbeddings:
         return self
 
     def _infer_sentence_embedding(self) -> torch.Tensor:
-        """
-        Infer the embeddings of the give_word in each example of the sense.
-        Returns: torch.Tensor
+        """Infer the embeddings of the give_word in each example of the sense.
 
+        Returns: torch.Tensor
         """
         for example in self.sense.examples:
             yield self.vector_embeddings.infer_vector(
@@ -163,10 +159,10 @@ class ExtractSenseEmbeddings:
             )
 
     def infer_mean_vector(self) -> WordSenseEmbedding:
-        """
-        Infer the mean vector embedding for the given word across all the examples in the senses.
-        Returns: WordSenseEmbedding object.
+        """Infer the mean vector embedding for the given word across all the
+        examples in the senses.
 
+        Returns: WordSenseEmbedding object.
         """
         all_token_embeddings =  torch.stack(list(self._infer_sentence_embedding()))
         return WordSenseEmbedding(
@@ -176,12 +172,11 @@ class ExtractSenseEmbeddings:
         )
 
     def create_sense_embeddings(self) -> list:
-        """
-        Extract the averaged vector embedding for a list of polysemous words across
-        a wide range of contexts.
+        """Extract the averaged vector embedding for a list of polysemous words
+        across a wide range of contexts.
+
         Returns:
             list: A list of dictionaries containing the word and the sense embeddings.
-
         """
         all_embeddings = []
         word_embedding = {}

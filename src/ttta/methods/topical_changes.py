@@ -1,3 +1,4 @@
+"""This module contains a class to detect topical changes in a diachronic topic model."""
 from typing import Union, List, Tuple, Set
 import numpy as np
 import pandas as pd
@@ -12,28 +13,30 @@ from scipy.spatial.distance import cosine
 from operator import itemgetter
 
 class TopicalChanges:
+    """This class is used to detect topical changes in a diachronic topic model."""
+
     def __init__(self, roll: RollingLDA, mixture: float = 0.9, reference_period: int = 4, quantile_threshold: float = 0.99, samples: int = 500, save_path: str = None,
                  load_path: str = None, fast: bool = True):
-        """
-            Calculates topical change points for the given parameters.
-            Args:
-                mixture: The mixture parameter as an a-priori-estimator for expected change in word usage from one time-chunk to the next. Lower values
-                         will detect more change points, but the changes will be smaller. Higher values will detect fewer change points, but the changes
-                         will be more noticeable.
-                reference_period: The maximum number of chunks to look back for when calculating the topic proportions in the simulation. This can make
-                                  the simulation more robust to outliers and allows for incorporating seasonal effects, e.g. when including the last four
-                                  chunks when making a quarterly analysis. When using a high value, the change detection will detect gradual changes, since
-                                  it compares the new chunks to very old chunks and when using a low value, the change detection will detect sudden changes,
-                                  since it compares the new chunks to very recent chunks.
-                quantile_threshold: The bootstrap quantile to compare the observed chunk similarities to, to detect significant changes in word usage.
-                samples: The number of samples to draw for the simulation.
-                save_path: The path to a directory in which the simulated topic proportions should be saved. If None, the simulated topic proportions are not saved.
-                load_path: The path to a directory from which the simulated topic proportions should be loaded. If None, the simulated topic proportions are not loaded.
-                fast: Whether the word impact should be calculated fast. If True, words that do not occur in the compared time chunks are ignored during
-                      the word impact calculation. This should not change the results, unless "word_impact_number" is set to a high value compared to the
-                      vocabulary size.
-            Returns:
-                If word_impact is True, a pandas DataFrame containing the word impact for each topic and change point. Else None.
+        """Calculates topical change points for the given parameters.
+
+        Args:
+            mixture: The mixture parameter as an a-priori-estimator for expected change in word usage from one time-chunk to the next. Lower values
+                     will detect more change points, but the changes will be smaller. Higher values will detect fewer change points, but the changes
+                     will be more noticeable.
+            reference_period: The maximum number of chunks to look back for when calculating the topic proportions in the simulation. This can make
+                              the simulation more robust to outliers and allows for incorporating seasonal effects, e.g. when including the last four
+                              chunks when making a quarterly analysis. When using a high value, the change detection will detect gradual changes, since
+                              it compares the new chunks to very old chunks and when using a low value, the change detection will detect sudden changes,
+                              since it compares the new chunks to very recent chunks.
+            quantile_threshold: The bootstrap quantile to compare the observed chunk similarities to, to detect significant changes in word usage.
+            samples: The number of samples to draw for the simulation.
+            save_path: The path to a directory in which the simulated topic proportions should be saved. If None, the simulated topic proportions are not saved.
+            load_path: The path to a directory from which the simulated topic proportions should be loaded. If None, the simulated topic proportions are not loaded.
+            fast: Whether the word impact should be calculated fast. If True, words that do not occur in the compared time chunks are ignored during
+                  the word impact calculation. This should not change the results, unless "word_impact_number" is set to a high value compared to the
+                  vocabulary size.
+        Returns:
+            If word_impact is True, a pandas DataFrame containing the word impact for each topic and change point. Else None.
         """
         if not isinstance(mixture, float):
             try:
@@ -84,12 +87,12 @@ class TopicalChanges:
 
 
     def plot_distances(self, **plot_args) -> None:
-        """
-            Plots the distances between the observed and simulated topic proportions.
-            Args:
-                **plot_args: Additional arguments to be passed to the matplotlib.pyplot.subplot function, e.g. nrows, ncols and figsize.
-            Returns:
-                None
+        """Plots the distances between the observed and simulated topic proportions.
+
+        Args:
+            **plot_args: Additional arguments to be passed to the matplotlib.pyplot.subplot function, e.g. nrows, ncols and figsize.
+        Returns:
+            None
         """
         if len([np.argwhere(self._distances_simulated.transpose()[x] < self._distances_observed.transpose()[x]).transpose(1, 0)[0].tolist() for x in
                           range(len(self._distances_simulated.transpose()))]) < 1:
@@ -121,16 +124,16 @@ class TopicalChanges:
         plt.show()
 
     def word_impact(self, number: int = 5, date_format: str = "%Y-%m-%d", fast: bool = True) -> pd.DataFrame:
-        """
-            Calculates the leave one out word impact for each topic and change point.
-            Args:
-                number: The number of words to return for the word impact.
-                date_format: The date format to return alongside the changes.
-                fast: Whether the word impact should be calculated fast. If True, words that do not occur in the compared time chunks are ignored during
-                      the word impact calculation. This should not change the results, unless "number" is set to a high value compared to the
-                      vocabulary size.
-            Returns:
-                A pandas DataFrame containing the date and word impact for each topic and change point.
+        """Calculate the leave one out word impact for each topic and change point.
+
+        Args:
+            number: The number of words to return for the word impact.
+            date_format: The date format to return alongside the changes.
+            fast: Whether the word impact should be calculated fast. If True, words that do not occur in the compared time chunks are ignored during
+                  the word impact calculation. This should not change the results, unless "number" is set to a high value compared to the
+                  vocabulary size.
+        Returns:
+            A pandas DataFrame containing the date and word impact for each topic and change point.
         """
         if not isinstance(number, int):
             try:
@@ -170,13 +173,13 @@ class TopicalChanges:
         return leave_one_out_word_impact
 
     def _simulate_changes(self, save_path: str = None, load_path: str = None) -> Union[Tuple[np.ndarray, np.ndarray], None]:
-        """
-            Simulates the topic proportions for each chunk and calculates the distances between the observed and simulated topic proportions.
-            Args:
-                save_path: The path to a directory in which the simulated topic proportions should be saved. If None, the simulated topic proportions are not saved.
-                load_path: The path to a directory from which the simulated topic proportions should be loaded. If None, the simulated topic proportions are not loaded.
-            Returns:
-                The distances between the observed and simulated topic proportions.
+        """Simulate the topic proportions for each chunk and calculates the distances between the observed and simulated topic proportions.
+
+        Args:
+            save_path: The path to a directory in which the simulated topic proportions should be saved. If None, the simulated topic proportions are not saved.
+            load_path: The path to a directory from which the simulated topic proportions should be loaded. If None, the simulated topic proportions are not loaded.
+        Returns:
+            The distances between the observed and simulated topic proportions.
         """
         if (not isinstance(save_path, str) and save_path is not None) or (not isinstance(load_path, str) and load_path is not None):
             raise TypeError("save_path and load_path must be string or None!")
@@ -229,14 +232,14 @@ class TopicalChanges:
         return distances_simulated, distances_observed
 
     def _sample(self, phi, frequency, topics_run) -> List[float]:
-        """
-            Samples the topic proportions for the simulation.
-            Args:
-                phi: The topic proportions of the last chunks.
-                frequency: The number of words in the current time chunk assigned to the topic to be simulated.
-                topics_run: The topic proportions of the last chunk.
-            Returns:
-                The sampled topic proportions.
+        """Sample the topic proportions for the simulation.
+
+        Args:
+            phi: The topic proportions of the last chunks.
+            frequency: The number of words in the current time chunk assigned to the topic to be simulated.
+            topics_run: The topic proportions of the last chunk.
+        Returns:
+            The sampled topic proportions.
         """
         if not isinstance(phi, np.ndarray):
             raise TypeError("phi must be a numpy array!")
@@ -265,7 +268,8 @@ class TopicalChanges:
 
     def save(self, path: str) -> None:
         """
-        Saves the model to a pickle file
+        Save the model to a pickle file.
+
         Returns:
             None
         """
@@ -275,7 +279,8 @@ class TopicalChanges:
 
     def load(self, path: str) -> None:
         """
-        Loads a model from a pickle file
+        Load a model from a pickle file.
+
         Returns:
             None
         """

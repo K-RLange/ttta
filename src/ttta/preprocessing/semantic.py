@@ -13,8 +13,9 @@ logging.basicConfig(level='INFO')
 
 
 class OxfordDictAPI:
-    """
-    Wrapper class for the Oxford Dictionary API. It retrieves the senses and examples for a given word.
+    """Wrapper class for the Oxford Dictionary API.
+
+    It retrieves the senses and examples for a given word.
     """
     def __init__(
             self,
@@ -85,8 +86,8 @@ class OxfordDictAPI:
         return ' '.join(words)
 
     def _yield_component(self) -> Dict:
-        """
-        Yield's back an OxfordAPI object with:
+        """Yield's back an OxfordAPI object with:
+
             - word key: the main word
             - senses: A list of the different senses, definitions and examples from each sense
         Returns:

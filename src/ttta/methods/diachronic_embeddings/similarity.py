@@ -11,8 +11,8 @@ from typing import List
 from pydantic import parse_obj_as
 
 class Similarities:
-    """
-    Class that computes the similarity between the embeddings of the words and the embeddings of the senses
+    """Class that computes the similarity between the embeddings of the words
+    and the embeddings of the senses.
 
     Attributes
     ----------
@@ -39,7 +39,6 @@ class Similarities:
             Returns the cosine similarity between two vectors
         __call__(main_word: str, year: int, path_embeddings_file: str) -> None
             Computes the similarity between the embeddings of the words and the embeddings of the senses
-
     """
     def __init__(
             self,

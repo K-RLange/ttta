@@ -11,9 +11,13 @@ from HanTa import HanoverTagger as ht
 from tqdm import tqdm
 lemma = WordNetLemmatizer()
 
+"""Implements basic preprocessing functions for text data, such as creating a document-term matrix."""
+
 def preprocess(texts, language="english", individual_stop_word_list=None, verbose=False):
-    """
-    Implements a very barebone preprocessing procedure for english texts. Is used by the pipeline-method and can be replaced by any arbitrary preprocessing function.
+    """Implements a very barebone preprocessing procedure for english texts.
+
+    Is used by the pipeline-method and can be replaced by any arbitrary preprocessing function.
+
     Args:
         texts: list of texts
         language: language of the texts
@@ -69,9 +73,9 @@ def preprocess(texts, language="english", individual_stop_word_list=None, verbos
     return processed_texts
 
 def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, dtm: np.ndarray = None) -> Tuple[np.ndarray, List[str]]:
-    """
-    Creates a document-term matrix from a list of texts and updates the existing dtm if there is one.
+    """Create a document-term matrix from a list of texts and updates the existing dtm if there is one.
     Stores both the dtm and the vocabulary in the class.
+
     Args:
         texts: list of texts
     Returns:
@@ -133,10 +137,12 @@ def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, dtm
     return dtm, vocab
 
 def get_word_and_doc_vector(dtm: Union[csr_array, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Turns a document-term matrix into index vectors. The word vector contains the vocabulary index for each word
+    """Turn a document-term matrix into index vectors.
+
+    The word vector contains the vocabulary index for each word
     occurrence including multiple occurrences in one text. The document vector contains the document index for each
     word occurrence including multiple occurrences in one document.
+
     Args:
         dtm: document-term matrix
     Returns:

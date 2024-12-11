@@ -50,8 +50,9 @@ class TTTAPipeline():
             self.model.save(model_save_path)
 
     def _read_corpus_file(self, path):
-        """
-        Reads a corpus file and returns a pandas DataFrame with the columns "date" and "text".
+        """Reads a corpus file and returns a pandas DataFrame with the columns
+        "date" and "text".
+
         Args:
             path: path to the corpus file
         Returns:
