@@ -16,6 +16,6 @@ Contents
    ttta
    usage
    modules
-   ttta.evaluation
-   ttta.methods
-   ttta.preprocessing
+   evaluation
+   methods
+   preprocessing
