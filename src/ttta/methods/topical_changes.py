@@ -161,15 +161,20 @@ class TopicalChanges:
                 continue
             for i, change in enumerate(changes):
                 temp = topics[k, :, max(1, change - self.runs[change][k], change - self.reference_period):change].sum(axis=1)
-                loo_temp = np.array(
-                    [0 if fast and topics[k, word, change] == 0 and temp[word] == 0 else cosine(np.delete(topics[k, :, change], word), np.delete(temp, word)) for word in range(topics.shape[1])])
-                leave_one_out_substracted = loo_temp - cosine(topics[k, :, change], temp)
-                significant_words = itemgetter(*leave_one_out_substracted.argsort()[-number:].astype(np.uint64).tolist())(self._roll.lda.get_vocab())
+                loo_temp = cosine(topics[k, :, change], temp)
+                leave_one_out_substracted = np.array(
+                    [0 if fast and topics[k, word, change] == 0 and temp[
+                        word] == 0 else cosine(
+                        np.delete(topics[k, :, change], word),
+                        np.delete(temp, word)) - loo_temp for word in
+                     range(topics.shape[1])])
+                significant_words = itemgetter(
+                    *leave_one_out_substracted.argsort()[:number].astype(
+                        np.uint64).tolist())(self._roll.lda.get_vocab())
                 leave_one_out_word_impact["Topic"].append(k)
                 leave_one_out_word_impact["Date"].append(events_end_date[k][i].strftime(date_format))
                 leave_one_out_word_impact["Significant Words"].append(significant_words)
         leave_one_out_word_impact = pd.DataFrame(leave_one_out_word_impact)
-        # todo loo richtig?
         return leave_one_out_word_impact
 
     def _simulate_changes(self, save_path: str = None, load_path: str = None) -> Union[Tuple[np.ndarray, np.ndarray], None]:

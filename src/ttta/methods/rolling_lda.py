@@ -22,7 +22,7 @@ from pyLDAvis import prepare, save_html, display, show
 class RollingLDA:
     """Implements a rolling LDA model for diachronic topic modeling."""
 
-    def __init__(self, K: int, how: Union[str, List[datetime]] = "M", warmup: int = 48, memory: int = 3, alpha: float = None, gamma: float = None,
+    def __init__(self, K: int, how: Union[str, List[datetime]] = "ME", warmup: int = 48, memory: int = 3, alpha: float = None, gamma: float = None,
                  initial_epochs: int = 100, subsequent_epochs: int = 50, min_count: int = 2, max_assign=False, prototype: int = 10,
                  topic_threshold: List[Union[int, float]] = None, prototype_measure: Union[str, Callable] = "jaccard", lda: LDAPrototype = None,
                  min_docs_per_chunk: int = None, verbose: int = 1) -> None:
@@ -200,7 +200,6 @@ class RollingLDA:
             self._last_text = {date_column: None, "index": 0}
         self._last_text[date_column] = texts[date_column].iloc[-1]
         self._last_text["index"] += len(texts) - 1
-        print(self._last_text)
 
     def fit_update(self, texts: pd.DataFrame, how: Union[str, List[datetime]] = None, workers: int = 1, text_column: str = "text",
                    date_column: str = "date") -> None:

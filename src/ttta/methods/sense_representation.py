@@ -1,3 +1,4 @@
+"""This module is used to infer and represent different senses of a word across multiple time periods"""
 import os.path
 import torch
 from pathlib import Path
