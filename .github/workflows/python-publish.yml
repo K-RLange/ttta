@@ -33,7 +33,7 @@ jobs:
           pip install setuptools wheel
           pip install numpy
           pip install Cython
-          python setup.py
+          python setup.py sdist
 
   pypi-publish:
     runs-on: ubuntu-latest
