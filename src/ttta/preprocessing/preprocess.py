@@ -1,6 +1,6 @@
 from typing import List, Tuple, Union
 import numpy as np
-from scipy.sparse import hstack, vstack, lil_array
+from scipy.sparse import hstack, vstack, lil_array, csr_matrix
 import itertools
 from collections import Counter
 import re
@@ -120,20 +120,27 @@ def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, dtm
     new_vocabulary_index = {word: i for i, word in enumerate(new_vocabulary)}
     new_vocabulary_set = set(new_vocabulary)
 
-    updated_dtm = lil_array((len(texts), len(new_vocabulary)))
+    row_indices = []
+    col_indices = []
+    data = []
     for i, doc in enumerate(texts):
-        updated_dtm[i, [new_vocabulary_index[word] for word in counters[i].keys() if word in new_vocabulary_set]] = \
-            [value for word, value in counters[i].items() if word in new_vocabulary_set]
+        for word, count in counters[i].items():
+            if word in new_vocabulary_set:
+                row_indices.append(i)
+                col_indices.append(new_vocabulary_index[word])
+                data.append(count)
+    updated_dtm = csr_array((data, (row_indices, col_indices)),
+                             shape=(len(texts), len(new_vocabulary)))
 
     number_of_new_words = len(new_vocabulary) - len(vocab)
     vocab = new_vocabulary
     if dtm is not None:
-        new_data = lil_array((dtm.shape[0], number_of_new_words))
+        new_data = csr_array((dtm.shape[0], number_of_new_words))
         existing_dtm = hstack((dtm, new_data))
         combined_dtm = vstack((existing_dtm, updated_dtm))
-        dtm = combined_dtm.tocsr()
+        dtm = combined_dtm#.tocsr()
     else:
-        dtm = updated_dtm.tocsr()
+        dtm = updated_dtm
     return dtm, vocab
 
 def get_word_and_doc_vector(dtm: Union[csr_array, np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
@@ -149,7 +156,7 @@ def get_word_and_doc_vector(dtm: Union[csr_array, np.ndarray]) -> Tuple[np.ndarr
         word_vec: word vector
         doc_vec: document vector
     """
-    if not isinstance(dtm, csr_array) or isinstance(dtm, np.ndarray):
+    if not isinstance(dtm, csr_array) and not isinstance(dtm, np.ndarray):
         try:
             dtm = np.array(dtm)
             if len(dtm.shape) == 0:
