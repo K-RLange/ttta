@@ -483,7 +483,7 @@ class LDAPrototype:
         if doc_vec.shape != assignment_vec.shape:
             raise ValueError("doc_vec and assignment_vec must have the same length!")
         doc_vec = doc_vec - min(doc_vec)  # Getting a zero-based index
-        document_topic_matrix = np.zeros((len(set(doc_vec)), self._K), dtype=np.uint64)
+        document_topic_matrix = np.zeros((int(max(doc_vec) - min(doc_vec) + 1), self._K), dtype=np.uint64)
         load_dk_mat_func(doc_vec, assignment_vec, document_topic_matrix, self._K)
         return document_topic_matrix
 
@@ -743,16 +743,18 @@ class LDAPrototype:
         word_topic_matrix = self.get_word_topic_matrix()
         topic_term_dists = (word_topic_matrix /
                             word_topic_matrix.sum(axis=0, keepdims=True)).transpose()
-        if any(topic_term_dists.sum(axis=1) - 1 == 0) and sum(topic_term_dists.sum(axis=1) - 1) < 1e-10:
+        if any(abs(topic_term_dists.sum(axis=1) - 1) < 1e-4):
             topic_term_dists[:, 0] -= topic_term_dists.sum(axis=1) - 1
         document_topic_matrix = self.get_document_topic_matrix()
+        len_of_docs = self._len_of_docs[document_topic_matrix.sum(axis=1) > 0]
+        document_topic_matrix = document_topic_matrix[document_topic_matrix.sum(axis=1) > 0, :]
         doc_topic_dists = (document_topic_matrix /
                             document_topic_matrix.sum(axis=1,
                                                       keepdims=True))
-        if any(doc_topic_dists.sum(axis=1) - 1 == 0) and sum(doc_topic_dists.sum(axis=1) - 1) < 1e-10:
+        if any(abs(doc_topic_dists.sum(axis=1) - 1) < 1e-4):
             doc_topic_dists[:, 0] -= doc_topic_dists.sum(axis=1) - 1
         term_frequency = word_topic_matrix.sum(axis=1)
-        ldaviz_data = prepare(topic_term_dists, doc_topic_dists, self._len_of_docs, self.get_vocab(), term_frequency, number)
+        ldaviz_data = prepare(topic_term_dists, doc_topic_dists, len_of_docs, self.get_vocab(), term_frequency, number)
         save_html(ldaviz_data, path)
         if open_browser:
             webbrowser.open_new_tab(path)

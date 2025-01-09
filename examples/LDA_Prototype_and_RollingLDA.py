@@ -5,12 +5,10 @@
 # federal state parliaments as well as the German Bundestag.
 
 import pandas as pd
-import nltk
 from datasets import load_dataset
 df = load_dataset("K-RLange/SpeakGer_sample")
 df = df["train"].to_pandas()
 df = df[df["State"] == "Nordrhein-Westfalen"]
-nltk.download('stopwords')
 from ttta.methods.lda_prototype import LDAPrototype
 from ttta.methods.rolling_lda import RollingLDA
 from ttta.methods.topical_changes import TopicalChanges

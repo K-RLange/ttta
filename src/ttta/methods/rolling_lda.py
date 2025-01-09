@@ -542,17 +542,21 @@ class RollingLDA:
         topic_term_dists = (word_topic_matrix /
                             word_topic_matrix.sum(axis=0, keepdims=True)).transpose()
         document_topic_matrix = self.get_document_topic_matrix(chunk)
-        doc_topic_dists = (document_topic_matrix /
-                            document_topic_matrix.sum(axis=1,
-                                                      keepdims=True))
-        term_frequency = word_topic_matrix.sum(axis=1)
         len_of_docs = self.lda._len_of_docs
-        vocab = self.lda.get_vocab()
         if chunk is not None:
             if chunk == len(self.chunk_indices):
                 len_of_docs = len_of_docs[self.chunk_indices["chunk_start"].iloc[chunk]:]
             else:
                 len_of_docs = len_of_docs[self.chunk_indices["chunk_start"].iloc[chunk]:self.chunk_indices["chunk_start"].iloc[chunk+1]]
+            len_of_docs = len_of_docs[document_topic_matrix.sum(axis=1) > 0]
+        document_topic_matrix = document_topic_matrix[document_topic_matrix.sum(axis=1) > 0, :]
+        doc_topic_dists = (document_topic_matrix /
+                            document_topic_matrix.sum(axis=1,
+                                                      keepdims=True))
+        if any(abs(doc_topic_dists.sum(axis=1) - 1) < 1e-4):
+            doc_topic_dists[:, 0] -= doc_topic_dists.sum(axis=1) - 1
+        term_frequency = word_topic_matrix.sum(axis=1)
+        vocab = self.lda.get_vocab()
         ldaviz_data = prepare(topic_term_dists, doc_topic_dists, len_of_docs, vocab, term_frequency, number)
         save_html(ldaviz_data, path)
         if open_browser:
