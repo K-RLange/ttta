@@ -343,6 +343,10 @@ class RollingLDA:
                     raise ValueError
             except ValueError:
                 raise TypeError("chunk must be an integer or None!")
+        if chunk > len(self.chunk_indices) - 1:
+            raise ValueError("The chunk index is out of bounds!")
+        if chunk < 0:
+            chunk = len(self.chunk_indices) + chunk
         assignments = self.lda.get_assignment_vec()
         words = self.lda.get_word_vec()
         len_of_docs = self.lda._len_of_docs
