@@ -34,7 +34,7 @@ def vanilla_gibbs_func(np.ndarray[np.npy_uint64, ndim=1, mode="c"] w_vec,
                        np.ndarray[np.npy_uint64, ndim=1, mode="c"] v_sum,
                        np.ndarray[double, ndim=1, mode="c"] alpha,
                        np.ndarray[double, ndim=1, mode="c"] gamma,
-                       np.ndarray[double, ndim=1, mode="c"] probs,
+                       np.ndarray[long double, ndim=1, mode="c"] probs,
                        K, iter, start, seed):
 
 
