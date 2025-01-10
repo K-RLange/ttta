@@ -18,6 +18,7 @@ from .topic_matching import TopicClusters
 from ..preprocessing.preprocess import create_dtm, get_word_and_doc_vector
 from pyLDAvis import prepare, save_html
 import webbrowser
+import random
 faulthandler.enable()
 
 class LDAPrototype:
@@ -28,7 +29,8 @@ class LDAPrototype:
     """
 
     def __init__(self, K: int, alpha: float = None, gamma: float = None, prototype: int = 10, topic_threshold: List[Union[int, float]] = None,
-                 prototype_measure: Union[str, Callable] = "jaccard", min_count: int = 2, max_assign: bool = False, verbose: int = 1):
+                 prototype_measure: Union[str, Callable] = "jaccard", min_count: int = 2, max_assign: bool = False,
+                 seed: Union[int, np.uint32] = None, verbose: int = 1):
         """
         Implement the LDAPrototype model, which trains multiple LDA models
         and selects the best one based on similarity measures. The LDAs are
@@ -44,6 +46,7 @@ class LDAPrototype:
             min_count: Minimum number of occurrences for a word to be included in the vocabulary
             max_assign: Should the final assignment of the trained LDAs be chosen by maximum assignment from all previous training iterations
                         or should it be chosen randomly based on the word-topic probabilities (default)?
+            seed: A seed for random number generation
             verbose: Verbosity level. 0 does not print anything, 1 prints runtime-relevant information, 2 and higher
                      shows debugging information.
         Returns:
@@ -129,12 +132,23 @@ class LDAPrototype:
             raise ValueError("min_count must be a natural number!")
         if not isinstance(max_assign, bool):
             raise TypeError("max_assign must be a boolean!")
+        if seed is None:
+            seed = np.uint32(random.random())
+        if not isinstance(seed, np.uint32):
+            try:
+                seed = np.uint32(seed)
+            except:
+                raise TypeError("seed must be an integer!")
+        seed = np.uint32([seed + x for x in range(prototype)])
         if not isinstance(verbose, float):
             try:
                 verbose = float(verbose)
             except ValueError:
                 raise TypeError("verbose must be a float!")
         self._K = K
+        self.seed = seed
+        random.seed(int(seed[0]))
+        np.random.seed(seed[0])
         self._alpha = self._create_lda_parameters(alpha)
         self._gamma = self._create_lda_parameters(gamma)
         self._prototype = prototype
@@ -352,6 +366,9 @@ class LDAPrototype:
 
         all_results = []
         if workers > 1:
+            # Todo
+            #  Fix. The assignments also need to be declared in the sample
+            #  function and need an rng seed based on the thread
             assignments = np.random.randint(0, self._K, len(word_vec), dtype=np.uint32)
             with Pool(workers) as pool:
                 all_results = pool.starmap(self._sample_gibbs, [(word_vec.copy(), assignments.copy(), doc_vec.copy(),
@@ -365,9 +382,10 @@ class LDAPrototype:
             for sample in iterator:
                 if self._verbose > 0:
                     iterator.set_description(f"Prototype {sample + 1}/{self._prototype}")
+                np.random.seed(self.seed[sample])
                 assignments = np.random.randint(0, self._K, len(word_vec), dtype=np.uint32)
                 res = self._sample_gibbs(word_vec.copy(), assignments.copy(), doc_vec.copy(), word_topic_matrix.copy(), document_topic_matrix.copy(),
-                                         v_sum.copy(), epochs)
+                                         v_sum.copy(), epochs, sample)
                 all_results.append(res)
 
         if self._prototype > 1:
@@ -387,7 +405,8 @@ class LDAPrototype:
         self._document_topic_matrix.append(prototype[2])
 
     def _sample_gibbs(self, word_vec: np.ndarray, assignment_vec: np.ndarray, doc_vec: np.ndarray, word_topic_matrix: np.ndarray,
-                      document_topic_matrix: np.ndarray, v_sum: np.ndarray, epochs: int = 200) -> (
+                      document_topic_matrix: np.ndarray, v_sum: np.ndarray, epochs: int = 200,
+                      sample: int = 0) -> (
             Tuple)[np.ndarray, np.ndarray, np.ndarray]:
         """
         LDA Gibbs Sampler that uses a C-implementation under the hood and edits the inputs in place.
@@ -400,6 +419,7 @@ class LDAPrototype:
             document_topic_matrix: document-topic matrix
             v_sum: sum of word-topic matrix
             epochs: number of epochs to train the models for
+            sample: current sample in the prototype calculation
         Returns:
             assignment_vec: assignment vector
             word_topic_matrix: word-topic matrix
@@ -417,8 +437,11 @@ class LDAPrototype:
             raise TypeError("v_sum must be a numpy array!")
         if not isinstance(epochs, int):
             raise TypeError("epochs must be an integer!")
+        if not isinstance(sample, int):
+            raise TypeError("sample must be an integer!")
         vanilla_gibbs_func(word_vec, assignment_vec, doc_vec, word_topic_matrix, document_topic_matrix, v_sum,
-                           np.array(self._alpha.copy()), np.array(self._gamma.copy()), np.zeros((self._K,)), self._K, epochs, 0)
+                           np.array(self._alpha.copy()), np.array(self._gamma.copy()), np.zeros((self._K,), dtype=np.longdouble),
+                           self._K, epochs, 0, self.seed[sample])
 
         if self._max_assign:
             final_assignment_func(word_vec, assignment_vec, doc_vec, word_topic_matrix, document_topic_matrix, v_sum, self._alpha.copy(), self._gamma.copy(),

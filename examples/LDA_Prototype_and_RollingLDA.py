@@ -28,9 +28,10 @@ df["Speech_processed"] = df["Speech_processed"].apply(lambda x: eval(x))
 # parameters in fit. Here, we train an LDA with 10 topics, 3 LDAs to be
 # compared for LDAPrototype, and a minimum threshold of 3 (absolute) and
 # 0.001 (relative) for topic matching in the prototype step.
-lda = LDAPrototype(10, prototype=3, topic_threshold=[3, 0.001], verbose=1)
+lda = LDAPrototype(10, prototype=3, topic_threshold=[3, 0.001], verbose=1,
+                   seed=1)
 # verbose can be set to 0 for no output or 2 for more output
-lda.fit(df["Speech_processed"], epochs=150)
+lda.fit(df["Speech_processed"], epochs=15)
 print(lda.top_words(10))
 # You can also use pyLDAviz to visualize the topics
 lda.visualize()

@@ -17,7 +17,7 @@ import math
 import webbrowser
 from ..preprocessing import chunk_creation
 from pyLDAvis import prepare, save_html, display, show
-
+import random
 
 class RollingLDA:
     """Implements a rolling LDA model for diachronic topic modeling."""
@@ -25,7 +25,7 @@ class RollingLDA:
     def __init__(self, K: int, how: Union[str, List[datetime]] = "ME", warmup: int = 48, memory: int = 3, alpha: float = None, gamma: float = None,
                  initial_epochs: int = 100, subsequent_epochs: int = 50, min_count: int = 2, max_assign=False, prototype: int = 10,
                  topic_threshold: List[Union[int, float]] = None, prototype_measure: Union[str, Callable] = "jaccard", lda: LDAPrototype = None,
-                 min_docs_per_chunk: int = None, verbose: int = 1) -> None:
+                 min_docs_per_chunk: int = None, verbose: int = 1, seed: Union[int, np.uint32] = None) -> None:
         """Initialize a RollingLDA model.
 
         Args:
@@ -45,6 +45,7 @@ class RollingLDA:
             lda: An LDAPrototype model to use instead of fitting a new one.
             min_docs_per_chunk: The minimum number of documents a chunk must contain to be used for the LDA training.
             verbose: The verbosity of the output. 0 does not show any output, 1 shows a progress bar, 2 also shows information relevant for debugging.
+            seed: A seed for random number generation
         """
         if not isinstance(how, str) and not isinstance(how, list):
             raise TypeError("how must be a string or a list of datetime dates!")
@@ -106,6 +107,15 @@ class RollingLDA:
                 raise TypeError("min_docs_per_chunk must be an integer or None!")
         if min_docs_per_chunk < 1:
             raise ValueError("min_docs_per_chunk must be a natural number greater than 0")
+        if seed is None:
+            seed = np.uint32(random.random())
+        if not isinstance(seed, np.uint32):
+            try:
+                seed = np.uint32(seed)
+            except:
+                raise TypeError("seed must be an integer!")
+        random.seed(int(seed))
+        self.seed = seed
         self._min_docs_per_chunk = min_docs_per_chunk
         if not topic_threshold:
             topic_threshold = [5, 0.002]
@@ -130,7 +140,7 @@ class RollingLDA:
         self._max_assign = max_assign
         self.lda = lda if lda is not None else LDAPrototype(K=K, alpha=alpha, gamma=gamma, prototype=prototype, topic_threshold=topic_threshold,
                                                             prototype_measure=prototype_measure, min_count=min_count, max_assign=max_assign,
-                                                            verbose=verbose-1)
+                                                            verbose=verbose-1, seed=seed)
         self._updated_how = []
         self._verbose = verbose
         self._distances_simulated = None
