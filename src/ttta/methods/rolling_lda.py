@@ -19,6 +19,9 @@ from ..preprocessing import chunk_creation
 from pyLDAvis import prepare, save_html, display, show
 import random
 
+from ..preprocessing.chunk_creation import how_to_timedelta
+
+
 class RollingLDA:
     """Implements a rolling LDA model for diachronic topic modeling."""
 
@@ -595,14 +598,15 @@ class RollingLDA:
             if chunk < 0 or chunk >= len(self.chunk_indices):
                 raise ValueError("The chunk index is out of bounds!")
         if chunk == "all" or chunk is None:
-            value = self.chunk_indices[self._date_column]
+            value = pd.DataFrame(self.chunk_indices[self._date_column])
             if isinstance(self._how, list):
                 value["from"] = self._how
             else:
-                value["from"] = (value[self._date_column] -
-                                 pd.to_timedelta(1, unit=self._how))
-            value.rename(columns={self._date_column: "until"})
-            return self.chunk_indices[self._date_column]
+                value["from"] = value[self._date_column].apply(
+                    lambda x: x - how_to_timedelta(self._how))
+            value = value.rename(columns={self._date_column: "until"})[
+                ["from", "until"]]
+            return value
         if isinstance(self._how, list):
             return "From {} until {}".format(
                 self._how[chunk] - self._how[chunk],
@@ -610,5 +614,154 @@ class RollingLDA:
         else:
             return "From {} until {}".format(
                 self.chunk_indices[self._date_column].iloc[chunk] -
-                pd.to_timedelta(1, unit=self._how),
+                how_to_timedelta(self._how),
                 self.chunk_indices[self._date_column].iloc[chunk])
+
+    def topic_shares(self, index: int = None, by: str = "chunk") -> pd.DataFrame:
+        """Return the topic shares for the given chunk or document.
+
+        Args:
+            index: The index for which the topic shares should be returned.
+            by: Whether the topic shares should be returned by "chunk" or "document".
+        Returns:
+            The topic shares for the given chunk or all chunks.
+        """
+        if not isinstance(index, int) and index is not None:
+            try:
+                if index == int(index):
+                    index = int(index)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("chunk must be an integer or None!")
+        if by == "chunk":
+            if index is None:
+                all_matrices = []
+                for i in range(len(self.chunk_indices)):
+                    all_matrices.append(self.topic_shares(i, by="chunk"))
+                all_matrices = np.array(all_matrices)
+                df = pd.DataFrame(all_matrices,
+                                  columns=[f"Topic {i + 1}" for i in
+                                           range(self._K)],
+                                  index=[f"Chunk {i + 1}" for i in
+                                         range(len(self.chunk_indices))])
+                return df
+            else:
+                if index < 0:
+                    index = len(self.chunk_indices) + index
+                if index < 0 or index >= len(self.chunk_indices):
+                    raise ValueError("The chunk index is out of bounds!")
+                document_topic_matrix = self.get_document_topic_matrix(index)
+                document_topic_matrix = document_topic_matrix.sum(axis=0)
+                document_topic_matrix = document_topic_matrix / document_topic_matrix.sum()
+                return document_topic_matrix
+        else:
+            if index is None:
+                document_topic_matrix = self.get_document_topic_matrix()
+                row_sums = document_topic_matrix.sum(axis=1, keepdims=True)
+                row_sums = np.where(row_sums == 0, 1, row_sums)
+                document_topic_matrix = document_topic_matrix / row_sums
+                return pd.DataFrame(document_topic_matrix, columns=[f"Topic {i+1}" for i in range(self._K)], index = [f"Document {i+1}" for i in range(document_topic_matrix.shape[0])])
+            else:
+                if index < 0:
+                    index = self._last_text["index"] + index
+                if index > self._last_text["index"] or index < 0:
+                    raise ValueError("The document index is out of bounds!")
+                document_topic_matrix = self.get_document_topic_matrix()[index]
+                return document_topic_matrix / document_topic_matrix.sum()
+
+    def get_highest_topic_share(self, topic: int, chunk: int = None,
+                                number: int = 5, min_length: int = 10) -> pd.DataFrame:
+        """Return the documents with the highest topic shares for the given chunk or overall.
+
+        Args:
+            topic: The topic for which the documents with the highest topic shares should be returned.
+            chunk: The chunk for which the documents with the highest topic shares should be returned.
+                     If None, the documents with the highest topic shares over the entire time frame are returned.
+            number: The number of documents to return.
+            min_length: The minimum number of words a document must contain to be considered.
+        Returns:
+            The documents with the highest topic shares for the given chunk.
+        """
+        if not isinstance(topic, int):
+            try:
+                if topic == int(topic):
+                    topic = int(topic)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("topic must be an integer!")
+        if not isinstance(chunk, int) and chunk is not None:
+            try:
+                if chunk == int(chunk):
+                    chunk = int(chunk)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("chunk must be an integer or None!")
+        if not isinstance(number, int):
+            try:
+                if number == int(number):
+                    number = int(number)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("number must be an integer!")
+
+        if chunk is None:
+            topic_shares = self.topic_shares(by="document").reset_index(drop=True)
+            topic_shares = topic_shares.iloc[:, topic]
+            topic_shares = topic_shares.iloc[self.lda._len_of_docs > min_length]
+            return topic_shares.nlargest(number)
+        else:
+            topic_shares = self.topic_shares(by="document").reset_index(drop=True)
+            topic_shares = topic_shares.iloc[self.lda._len_of_docs > min_length]
+            if chunk < len(self.chunk_indices) - 1:
+                end = self.chunk_indices.iloc[chunk + 1]["chunk_start"]
+            else:
+                end = self._last_text["index"]
+            topic_shares = topic_shares.iloc[self.chunk_indices.iloc[chunk]["chunk_start"]:end, topic]
+            return topic_shares.nlargest(number)
+
+    def topic_evolution(self, topic: int = None, path: str = None, show: bool = True,
+                        figsize: Tuple[int, int] = (15, 5)) -> None:
+        """Plot the evolution of the topic shares over time.
+
+        Args:
+            topic: The topic for which the evolution should be plotted. If None, the evolution for all topics is plotted.
+            path: The path to save the plot to.
+            show: Whether to show the plot.
+            figsize: The size of the plot.
+        Returns:
+            None
+        """
+        if not isinstance(topic, int) and topic is not None:
+            try:
+                if topic == int(topic):
+                    topic = int(topic)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("topic must be an integer or None!")
+        if path is not None and not isinstance(path, str):
+            raise TypeError("path must be a string!")
+        topic_shares = self.topic_shares(by="chunk")
+        topic_shares = topic_shares.reset_index(drop=True)
+        if topic is not None:
+            topic_shares = topic_shares[f"Topic {topic + 1}"]
+        sns.set_theme(style="whitegrid")
+        sns.set_palette("muted")
+
+        topic_shares.plot(figsize=figsize)
+        ax = plt.subplot(111)
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), fancybox=True, shadow=True, title="Topics")
+        plt.xlabel("Chunk", fontsize=12, labelpad=10)
+        plt.ylabel("Topic Share", fontsize=12, labelpad=10)
+        plt.title("Topic Evolution", fontsize=14, fontweight="bold", pad=15)
+        sns.despine(left=True, bottom=True)
+        if path:
+            plt.savefig(path)
+        if show:
+            plt.show()

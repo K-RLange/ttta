@@ -5,6 +5,9 @@ from datetime import datetime
 import warnings
 import numpy as np
 from ..methods.lda_prototype import LDAPrototype
+from dateutil.relativedelta import relativedelta
+import re
+
 def _get_time_indices(texts: pd.DataFrame, how: Union[str, List[datetime]] = "M", last_date: datetime = None,
                       date_column: str = "date", min_docs_per_chunk: int = 500) -> pd.DataFrame:
     """Create the time indices for the given texts.
@@ -72,3 +75,39 @@ def _get_time_indices(texts: pd.DataFrame, how: Union[str, List[datetime]] = "M"
     period_start["chunk_start"] = period_start["chunk_start"].astype(np.uint64)
     period_start = period_start.reset_index()
     return period_start
+
+
+def how_to_timedelta(how: str) -> relativedelta:
+    """
+    Converts pandas `how` resampling options into parameters suitable for `timedelta`.
+
+    Args:
+        how (str): The resampling option, e.g., 'S' for seconds, 'min' for minutes, etc.
+
+    Returns:
+        timedelta: A timedelta object corresponding to the `how` parameter.
+    """
+    mapping = {
+        'S': 'seconds',
+        'T': 'minutes',
+        'min': 'minutes',
+        'H': 'hours',
+        'D': 'days',
+        'W': 'weeks',
+        'M': 'months',
+        'ME': 'months',
+        'Q': 'quarters',
+        'Y': 'years',
+    }
+    match = re.match(r"(\d+)?([a-zA-Z]+)", how)
+    if not match:
+        raise ValueError(f"Invalid `how` format: {how}. Expected format like '3S', '5min', etc.")
+    quantity, unit = match.group(1), mapping[match.group(2)]
+    if quantity is None:
+        quantity = 1
+    else:
+        quantity = int(quantity)
+    if unit == "quarters":
+        quantity *= 3
+        unit = "months"
+    return relativedelta(**{unit: quantity})
