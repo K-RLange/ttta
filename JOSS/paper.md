@@ -15,7 +15,6 @@ authors:
   - name: Lars Grönberg
     affiliation: 1
   - name: Aymane Hachcham
-    affiliation: 3
   - name: Imene Kolli
     affiliation: 4
   - name: Jonas Rieger
@@ -26,10 +25,8 @@ authors:
 affiliations:
  - name: TU Dortmund University
    index: 1
- - name: RWI – Leibniz Institute for Economic Research
+ - name: RWI - Leibniz Institute for Economic Research
    index: 2
- - name: ?
-   index: 3
  - name: University of Zurich
    index: 4
 citation_author: Lange et. al.
