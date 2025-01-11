@@ -15,6 +15,7 @@ authors:
   - name: Lars Grönberg
     affiliation: 1
   - name: Aymane Hachcham
+    affiliation: 3
   - name: Imene Kolli
     affiliation: 4
   - name: Jonas Rieger
@@ -27,6 +28,8 @@ affiliations:
    index: 1
  - name: RWI - Leibniz Institute for Economic Research
    index: 2
+ - name: ...
+   index: 3
  - name: University of Zurich
    index: 4
 citation_author: Lange et. al.
@@ -44,6 +47,7 @@ Text data is inherently temporal. The meaning of words and phrases changes over 
 Researchers have developed a number of tools for analyzing text data over time. However, these tools are often scattered across different packages and libraries, making it difficult for researchers to use them in a consistent and reproducible way.
 
 The `ttta` package is supposed to serve as a collection of tools for analyzing text data over time. 
+
 # Summary
 In its current state, the `ttta` package includes diachronic embeddings, dynamic topic modeling, and document scaling. These tools can be used to track changes in language use, identify emerging topics, and explore how the meaning of words and phrases has evolved over time. We do however only consider this to be the beginning of the development of the package. We plan to add more tools for analyzing text data over time in the future.
 
@@ -55,4 +59,5 @@ The Poisson Reduced Rank model [@PRR1, @PRR2] is a document scaling model, which
 
 # Acknowledgements
 This paper is part of a project of the Dortmund Center for data-based Media Analysis (DoCMA) at TU Dortmund University.
+
 # References
