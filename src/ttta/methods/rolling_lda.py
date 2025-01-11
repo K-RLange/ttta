@@ -266,7 +266,7 @@ class RollingLDA:
         for i, row in iterator:
             if self._verbose and i < len(self.chunk_indices) - 1:
                 iterator.set_description(f"Processing {self.chunk_indices.iloc[i + 1]['chunk_start'] - 1 - self.chunk_indices.iloc[i]['chunk_start']} documents in "
-                                         f"chunk {self.chunk_indices.iloc[i]['date'].strftime('%Y-%m-%d')}")
+                                         f"chunk {self.chunk_indices.iloc[i][self._date_column].strftime('%Y-%m-%d')}")
             end = self.chunk_indices.iloc[i + 1]["chunk_start"] if i + 1 < len(self.chunk_indices) else len(texts) + self._last_text["index"] + 1   # todo hier ueberpruefen, ob ohne self.text richtige indices berechnet werden
             self.lda._last_end[-1] = self.chunk_indices.iloc[i]["chunk_start"] - self.chunk_indices.iloc[last_trained]["chunk_start"]
             self.lda.fit(texts[self._text_column], epochs=self._subsequent_epochs, first_chunk=False, chunk_end=end - self._last_text["index"] - 1, memory_start=row["memory_start"], workers=workers)
@@ -343,10 +343,10 @@ class RollingLDA:
                     raise ValueError
             except ValueError:
                 raise TypeError("chunk must be an integer or None!")
-        if chunk > len(self.chunk_indices) - 1:
-            raise ValueError("The chunk index is out of bounds!")
         if chunk < 0:
             chunk = len(self.chunk_indices) + chunk
+        if chunk > len(self.chunk_indices) - 1 or chunk < 0:
+            raise ValueError("The chunk index is out of bounds!")
         assignments = self.lda.get_assignment_vec()
         words = self.lda.get_word_vec()
         len_of_docs = self.lda._len_of_docs
@@ -575,3 +575,40 @@ class RollingLDA:
         save_html(ldaviz_data, path)
         if open_browser:
             webbrowser.open_new_tab(path)
+
+    def get_date_of_chunk(self, chunk: int = None) -> Union[pd.DataFrame, str]:
+        """Return the time span that a chunk represents. Returns a pandas
+        DataFrame of all chunks with the chunk as the index if chunk is None or
+        "all".
+
+        Args:
+            chunk: The chunk for which the time span should be returned.
+        Returns:
+            The time span that the chunk represents or a DataFrame of all
+            chunks and their time spans.
+        """
+        if chunk is not None:
+            if not isinstance(chunk, int) and chunk != "all":
+                raise TypeError("chunk must be an integer, 'all' or None!")
+            if chunk < 0:
+                chunk = len(self.chunk_indices) + chunk
+            if chunk < 0 or chunk >= len(self.chunk_indices):
+                raise ValueError("The chunk index is out of bounds!")
+        if chunk == "all" or chunk is None:
+            value = self.chunk_indices[self._date_column]
+            if isinstance(self._how, list):
+                value["from"] = self._how
+            else:
+                value["from"] = (value[self._date_column] -
+                                 pd.to_timedelta(1, unit=self._how))
+            value.rename(columns={self._date_column: "until"})
+            return self.chunk_indices[self._date_column]
+        if isinstance(self._how, list):
+            return "From {} until {}".format(
+                self._how[chunk] - self._how[chunk],
+                self._how[chunk])
+        else:
+            return "From {} until {}".format(
+                self.chunk_indices[self._date_column].iloc[chunk] -
+                pd.to_timedelta(1, unit=self._how),
+                self.chunk_indices[self._date_column].iloc[chunk])
