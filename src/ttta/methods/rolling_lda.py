@@ -637,8 +637,8 @@ class RollingLDA:
                 raise TypeError("chunk must be an integer or None!")
         if index is not None:
             if index < 0:
-                index = self._last_text + index
-            if index < 0 or index >= self._last_text:
+                index = self._last_text["index"] + index
+            if index < 0 or index >= self._last_text["index"]:
                 raise ValueError("The document index is out of bounds!")
         if not isinstance(chunk, int) and chunk is not None:
             try:
@@ -711,12 +711,12 @@ class RollingLDA:
                 raise TypeError("number must be an integer!")
 
         if chunk is None:
-            topic_shares = self.topic_shares(by="document").reset_index(drop=True)
+            topic_shares = self.topic_shares(chunk=chunk).reset_index(drop=True)
             topic_shares = topic_shares.iloc[:, topic]
             topic_shares = topic_shares.iloc[self.lda._len_of_docs > min_length]
             return topic_shares.nlargest(number)
         else:
-            topic_shares = self.topic_shares(by="document").reset_index(drop=True)
+            topic_shares = self.topic_shares().reset_index(drop=True)
             topic_shares = topic_shares.iloc[self.lda._len_of_docs > min_length]
             if chunk < len(self.chunk_indices) - 1:
                 end = self.chunk_indices.iloc[chunk + 1]["chunk_start"]
