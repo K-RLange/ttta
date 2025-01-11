@@ -1,6 +1,6 @@
 [project]
 name = "ttta"
-version = "0.9.4"
+version = "0.9.5"
 description = "Tools for temporal text analysis: A Python package providing diachronic tools for text analysis."
 readme = {file= "README.md", content-type = "text/markdown"}
 authors = [
@@ -13,7 +13,7 @@ authors = [
     {name = "Carsten Jentsch", email = "jentsch@statistik.tu-dortmund.de"}
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: End Users/Desktop",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
@@ -30,7 +30,6 @@ dependencies = [
     "pandas",
     "gensim",
     "matplotlib",
-    "wordcloud",
     "spacy",
     "joblib",
     "scipy",

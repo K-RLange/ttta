@@ -7,7 +7,6 @@ import matplotlib
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-from wordcloud import WordCloud
 from scipy.sparse import csr_array
 from .LDA.lda_gibbs import vanilla_gibbs_func, load_wk_mat_func, final_assignment_func, load_dk_mat_func
 from .LDA.importance_calculation import calculate_importance
@@ -582,6 +581,10 @@ class LDAPrototype:
         Returns:
             None
         """
+        try:
+            from wordcloud import WordCloud
+        except ImportError:
+            raise ImportError("You need to install the wordcloud library to use this function!")
         if not isinstance(topic, int) and topic is not None:
             try:
                 if int(topic) != topic:
