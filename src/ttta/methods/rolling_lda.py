@@ -711,18 +711,25 @@ class RollingLDA:
                 raise TypeError("number must be an integer!")
 
         if chunk is None:
-            topic_shares = self.topic_shares(chunk=chunk).reset_index(drop=True)
+            topic_shares = self.topic_shares().reset_index(drop=True)
             topic_shares = topic_shares.iloc[:, topic]
             topic_shares = topic_shares.iloc[self.lda._len_of_docs > min_length]
             return topic_shares.nlargest(number)
         else:
-            topic_shares = self.topic_shares().reset_index(drop=True)
-            topic_shares = topic_shares.iloc[self.lda._len_of_docs > min_length]
+            topic_shares = self.topic_shares(chunk=chunk).reset_index(drop=True)
             if chunk < len(self.chunk_indices) - 1:
-                end = self.chunk_indices.iloc[chunk + 1]["chunk_start"]
+                topic_shares = topic_shares.iloc[self.lda._len_of_docs[
+                                                 self.chunk_indices.iloc[
+                                                     chunk]["chunk_start"]:
+                                                 self.chunk_indices.iloc[
+                                                     chunk + 1][
+                                                     "chunk_start"]] > min_length, topic]
             else:
-                end = self._last_text["index"]
-            topic_shares = topic_shares.iloc[self.chunk_indices.iloc[chunk]["chunk_start"]:end, topic]
+                topic_shares = topic_shares.iloc[self.lda._len_of_docs[
+                                                 self.chunk_indices.iloc[
+                                                     chunk]["chunk_start"]:
+                                                 self._last_text[
+                                                     "index"]] > min_length, topic]
             return topic_shares.nlargest(number)
 
     def topic_evolution(self, topic: int = None, path: str = None, show: bool = True,
