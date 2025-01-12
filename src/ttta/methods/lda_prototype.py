@@ -540,7 +540,7 @@ class LDAPrototype:
                 topic = int(topic)
             except ValueError:
                 raise TypeError("topic must be an integer!")
-        if topic is not None and (topic < 1 or topic > self._K):
+        if topic is not None and (topic < 0 or topic >= self._K):
             raise ValueError("topic must be a natural number between 1 and K")
         if not isinstance(importance, bool) and not isinstance(importance, np.ndarray):
                 raise TypeError("importance must be a boolean!")
@@ -556,14 +556,14 @@ class LDAPrototype:
         if isinstance(importance, bool) and importance:
             importance = calculate_importance(word_topic_matrix) if importance else None
         if topic is None:
-            top_words = [self.top_words(number, k, importance, word_topic_matrix) for k in range(1, self._K + 1)]
+            top_words = [self.top_words(number, k, importance, word_topic_matrix) for k in range(self._K)]
             if return_as_data_frame:
                 top_words = pd.DataFrame(np.asarray(top_words).transpose(), columns=[f"Topic {k}" for k in range(len(top_words))])
             return top_words
         else:
             if isinstance(importance, np.ndarray):
-                return [self._vocab[index] for index in np.argsort(-importance[topic - 1, :])[:number]]
-            return [self._vocab[index] for index in np.argsort(-word_topic_matrix[topic - 1, :])[:number]]
+                return [self._vocab[index] for index in np.argsort(-importance[topic, :])[:number]]
+            return [self._vocab[index] for index in np.argsort(-word_topic_matrix[topic, :])[:number]]
 
     def wordclouds(self, topic: int = None, number: int = 50, path: str = "wordclouds.pdf", height: int = 600, width: int = 700,
                    show: bool = True, word_topic_matrix: np.ndarray = None) -> None:

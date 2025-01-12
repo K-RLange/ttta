@@ -192,7 +192,8 @@ class RollingLDA:
             raise ValueError("The LDA has already been trained. If you want to update the training process, use fit_update() instead!")
 
         texts[date_column] = pd.to_datetime(texts[date_column])
-        texts.sort_values(by=date_column, inplace=True)
+        texts.sort_values(by=date_column, inplace=True, kind="stable")
+        self.sorting = texts.index
         self.chunk_indices = self._get_time_indices(texts)
         if self.chunk_indices.shape[0] < self._warmup + 1:
             raise ValueError(f"The number of chunks in the data must be larger than warmup!")
@@ -261,7 +262,8 @@ class RollingLDA:
             return
         last_trained = len(self.chunk_indices)
         texts[self._date_column] = pd.to_datetime(texts[self._date_column])
-        texts.sort_values(by=self._date_column, inplace=True)
+        texts.sort_values(by=self._date_column, inplace=True, kind="stable")
+        self.sorting = texts.index
         self.chunk_indices = self._get_time_indices(texts, update=True, how=how)
         iterator = self.chunk_indices.iloc[last_trained:].iterrows()
         if self._verbose > 0:
