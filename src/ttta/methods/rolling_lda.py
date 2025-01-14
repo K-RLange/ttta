@@ -208,7 +208,7 @@ class RollingLDA:
                 self.lda.fit(texts[text_column], epochs=self._initial_epochs,
                              chunk_end=self.chunk_indices.iloc[self._warmup + 1]["chunk_start"], memory_start=0, workers=workers)
                 continue
-            end = len(texts) if i + 1 >= len(self.chunk_indices) else self.chunk_indices.iloc[i + 1]["chunk_start"] - 1
+            end = len(texts) if i + 1 >= len(self.chunk_indices) else self.chunk_indices.iloc[i + 1]["chunk_start"]
             self.lda.fit(texts[text_column], epochs=self._subsequent_epochs, first_chunk=False, chunk_end=end, memory_start=row["memory_start"], workers=workers)
         if self._last_text is None:
             self._last_text = {date_column: None, "index": 0}
@@ -348,10 +348,11 @@ class RollingLDA:
                     raise ValueError
             except ValueError:
                 raise TypeError("chunk must be an integer or None!")
-        if chunk < 0:
-            chunk = len(self.chunk_indices) + chunk
-        if chunk > len(self.chunk_indices) - 1 or chunk < 0:
-            raise ValueError("The chunk index is out of bounds!")
+        if chunk is not None:
+            if chunk < 0:
+                chunk = len(self.chunk_indices) + chunk
+            if chunk > len(self.chunk_indices) - 1 or chunk < 0:
+                raise ValueError("The chunk index is out of bounds!")
         assignments = self.lda.get_assignment_vec()
         words = self.lda.get_word_vec()
         len_of_docs = self.lda._len_of_docs
@@ -776,3 +777,53 @@ class RollingLDA:
             plt.savefig(path)
         if show:
             plt.show()
+
+    def inference(self, texts: List[List[str]], chunk: int = None, epochs: int = 100,
+                  seed: int = None, init_as_max_wt_prob: bool = True) -> np.ndarray:
+        """Perform inference on the given texts.
+        Args:
+            texts: A list of tokenized documents.
+            chunk: The chunk for which the inference should be performed.
+            epochs: The number of epochs to perform.
+            seed: A seed for random number generation.
+            init_as_max_wt_prob: Whether the initialization should be based on the maximum word-topic probability.
+        Returns:
+            The topic shares for the given texts.
+        """
+        if not isinstance(texts, list):
+            raise TypeError("texts must be a list of tokenized documents!")
+        if not isinstance(chunk, int) and chunk is not None:
+            try:
+                if chunk == int(chunk):
+                    chunk = int(chunk)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("chunk must be an integer or None!")
+        if not isinstance(epochs, int):
+            try:
+                if epochs == int(epochs):
+                    epochs = int(epochs)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("epochs must be an integer!")
+        if seed is None:
+            seed = self.seed
+        if not isinstance(seed, int):
+            try:
+                seed = int(seed)
+            except:
+                raise TypeError("seed must be an integer!")
+
+        assignments = self.lda.get_assignment_vec()
+        words = self.lda.get_word_vec()
+        len_of_docs = self.lda._len_of_docs
+        if chunk is None:
+            return self.lda.inference(texts, words, assignments, epochs, seed, init_as_max_wt_prob)
+        start_index = len_of_docs[:self.chunk_indices.iloc[chunk]["chunk_start"]].sum()
+        if chunk == len(self.chunk_indices) - 1:
+            end_index = len(assignments)
+        else:
+            end_index = len_of_docs[:self.chunk_indices.iloc[chunk + 1]["chunk_start"]].sum()
+        return self.lda.inference(texts, words[start_index:end_index], assignments[start_index:end_index], epochs, seed, init_as_max_wt_prob)

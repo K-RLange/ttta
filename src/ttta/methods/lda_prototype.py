@@ -510,7 +510,8 @@ class LDAPrototype:
         return document_topic_matrix
 
     def top_words(self, number: int = 5, topic: int = None, importance: Union[bool, np.ndarray] = True,
-                  word_topic_matrix: np.ndarray = None, return_as_data_frame: bool = True) -> Union[List[str], List[List[str]], pd.DataFrame]:
+                  word_topic_matrix: np.ndarray = None, return_as_data_frame: bool = True,
+                  vocab: List[str] = None) -> Union[List[str], List[List[str]], pd.DataFrame]:
         """
         Get the most relevant and distinctive words for a topic.
         Args:
@@ -520,6 +521,7 @@ class LDAPrototype:
                         np.array: importance of words for each topic
             word_topic_matrix: word-topic matrix
             return_as_data_frame: should the result be returned as a pandas DataFrame (Default) or a list?
+            vocab: vocabulary
         Returns:
             top_words: top words
         """
@@ -555,15 +557,19 @@ class LDAPrototype:
             raise TypeError("return_as_data_frame must be a boolean!")
         if isinstance(importance, bool) and importance:
             importance = calculate_importance(word_topic_matrix) if importance else None
+        if vocab is None:
+            vocab = self._vocab
+        if not isinstance(vocab, list):
+            raise TypeError("vocab must be a list of strings!")
         if topic is None:
-            top_words = [self.top_words(number, k, importance, word_topic_matrix) for k in range(self._K)]
+            top_words = [self.top_words(number, k, importance, word_topic_matrix, vocab=vocab) for k in range(self._K)]
             if return_as_data_frame:
                 top_words = pd.DataFrame(np.asarray(top_words).transpose(), columns=[f"Topic {k}" for k in range(len(top_words))])
             return top_words
         else:
             if isinstance(importance, np.ndarray):
-                return [self._vocab[index] for index in np.argsort(-importance[topic, :])[:number]]
-            return [self._vocab[index] for index in np.argsort(-word_topic_matrix[topic, :])[:number]]
+                return [vocab[index] for index in np.argsort(-importance[topic, :])[:number]]
+            return [vocab[index] for index in np.argsort(-word_topic_matrix[topic, :])[:number]]
 
     def wordclouds(self, topic: int = None, number: int = 50, path: str = "wordclouds.pdf", height: int = 600, width: int = 700,
                    show: bool = True, word_topic_matrix: np.ndarray = None) -> None:
@@ -784,3 +790,110 @@ class LDAPrototype:
         save_html(ldaviz_data, path)
         if open_browser:
             webbrowser.open_new_tab(path)
+
+    def inference(self, texts: List[List[str]], word_vec: np.ndarray = None,
+                  assignment_vec: np.ndarray = None, epochs: int = 100,
+                  seed: int = None, init_as_max_wt_prob: bool = True) -> np.ndarray:
+        """Infer the topic distribution for a list of unseen texts.
+
+        Args:
+            texts: list of tokenized texts
+            word_vec: word vector
+            assignment_vec: assignment vector
+            epochs: number of epochs to inference the documents for
+            init_as_max_wt_prob: should the initialization be done as the maximum word-topic probability?
+        Returns:
+            The word-topic matrix, the document-topic matrix and the vocabulary for the new texts
+        """
+        if not isinstance(texts, list):
+            if isinstance(texts, str):
+                raise TypeError("texts must be a list of lists of strings!")
+            try:
+                texts = list(texts)
+                if len(texts) <= 1:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("texts must be a list of lists of strings!")
+        if not isinstance(texts[0], list):
+            texts = [list(x) for x in texts]
+        if not isinstance(texts[0][0], str):
+            texts = [[str(x) for x in text] for text in texts]
+            warnings.warn("The given texts are not input as strings.")
+        if word_vec is None:
+            if self._is_trained:
+                word_vec = self._word_vec
+            else:
+                raise AttributeError("word_vec must be provided if the model has not been trained yet!")
+        if assignment_vec is None:
+            if self._is_trained:
+                assignment_vec = self._assignments
+            else:
+                raise AttributeError("as_vec must be provided if the model has not been trained yet!")
+        if not isinstance(epochs, int):
+            raise TypeError("epochs must be an integer!")
+        if epochs < 1:
+            raise ValueError("epochs must be a natural number greater than 0")
+        if seed is None:
+            seed = self.seed[0]
+        if not isinstance(seed, int):
+            try:
+                seed = int(seed)
+            except:
+                raise TypeError("seed must be an integer!")
+        random.seed(seed)
+        np.random.seed(seed)
+        new_dtm, vocab = create_dtm(texts, self._vocab)
+        new_word_vec, new_doc_vec = self._get_word_and_doc_vector(new_dtm)
+        if init_as_max_wt_prob:
+            highest_probs = np.argmax(self.get_word_topic_matrix(word_vec, assignment_vec), axis=1)
+            new_assignment_vec = np.array([highest_probs[word] if word < len(highest_probs) else np.random.randint(0, self._K, 1, dtype=np.uint32)[0] for word in new_word_vec], dtype=np.uint32)
+        else:
+            new_assignment_vec = np.random.randint(0, self._K, len(new_word_vec), dtype=np.uint32)
+        new_document_topic_matrix = self.get_document_topic_matrix(new_doc_vec, new_assignment_vec)
+        new_word_topic_matrix = self.get_word_topic_matrix(new_word_vec, new_assignment_vec) + self.get_word_topic_matrix(word_vec, assignment_vec)
+        v_sum = np.sum(new_word_topic_matrix, axis=0)
+        vanilla_gibbs_func(new_word_vec, new_assignment_vec, new_doc_vec, new_word_topic_matrix, new_document_topic_matrix, v_sum,
+                           np.array(self._alpha.copy()), np.array(self._gamma.copy()), np.zeros((self._K,), dtype=np.longdouble),
+                           self._K, epochs, 0, seed)
+        final_word_topic_matrix = self.get_word_topic_matrix(new_word_vec, new_assignment_vec)
+        return final_word_topic_matrix, new_document_topic_matrix, vocab
+
+    def _create_inference_dtm(self, texts: List[List[str]]) -> csr_array:
+        """Create a document-term matrix from a list of texts using an existing vocabulary.
+
+        Args:
+            texts: list of texts
+        Returns:
+            Document-term matrix
+        """
+        if not isinstance(texts, list):
+            try:
+                texts = list(texts)
+            except ValueError:
+                raise TypeError("texts must be a list of list of strings!")
+        if not isinstance(texts[0], list):
+            try:
+                texts = [list(x) for x in texts]
+            except ValueError:
+                raise TypeError("texts must be a list of lists of strings!")
+        if not isinstance(texts[0][0], str):
+            try:
+                texts = [[str(x) for x in text] for text in texts]
+            except ValueError:
+                raise TypeError("texts must be a list of lists of strings!")
+        counters = [Counter(doc) for doc in texts]
+        vocab_index = {word: i for i, word in enumerate(self._vocab)}
+        vocab_set = set(self._vocab)
+
+        row_indices = []
+        col_indices = []
+        data = []
+        for i, doc in enumerate(texts):
+            for word, count in counters[i].items():
+                if word in vocab_set:
+                    row_indices.append(i)
+                    col_indices.append(vocab_index[word])
+                    data.append(count)
+        dtm = csr_array((data, (row_indices, col_indices)),
+                        shape=(len(texts), len(self._vocab)))
+        return dtm
