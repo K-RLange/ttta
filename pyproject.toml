@@ -1,6 +1,6 @@
 [project]
 name = "ttta"
-version = "0.9.5"
+version = "0.9.6"
 description = "Tools for temporal text analysis: A Python package providing diachronic tools for text analysis."
 readme = {file= "README.md", content-type = "text/markdown"}
 authors = [
@@ -28,7 +28,7 @@ dependencies = [
     "nltk",
     "Cython",
     "pandas",
-    "gensim",
+    "gensim>=4.0.0",
     "matplotlib",
     "spacy",
     "joblib",

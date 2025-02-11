@@ -1,14 +1,15 @@
 import pickle
 import warnings
+from nltk.tag import pos_tag
 from typing import List, Union, Optional, Tuple, Literal
 import pandas as pd
 from gensim.models import Word2Vec
-from ttta.methods.word2vec.word2vec import Word2VecTrainer, Word2VecAlign, Word2VecInference
 import numpy as np
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from ttta.preprocessing.chunk_creation import _get_time_indices
+from gensim.models.phrases import Phrases, Phraser
 from datetime import datetime
 
 class Word2VecSemanticShift:
@@ -18,17 +19,24 @@ class Word2VecSemanticShift:
     Methods:
         fit: Fits the Word2Vec models on the texts.
         fit_update: Updates the Word2Vec models on the texts.
-        _align_models: Aligns the Word2Vec models.
-        save: Saves this class to a file
-        load: Loads this class from a file.
-        get_parameters: Returns the parameters of the RollingLDA model.
         infer_vector: Infers the vector of a word.
         top_words: Returns the top words similar to a word.
-        visualize: Visualizes the semantic shift of a word across chunks
+        visualize: Visualizes the semantic shift of a word across chunks.
+        get_vector: Returns the vector of a word in a chunk.
+        get_parameters: Returns the parameters of the RollingLDA model.
+        get_reference: Returns the reference chunk index.
+        get_vocab: Returns the vocabulary of a chunk.
+        is_trained: Returns whether the model has been trained or not.
+        save: Saves this class to a file.
+        load: Loads this class from a file.
+        _prepare_for_training: Prepares the texts for training.
+        _train_word2vec: Trainer function for the Word2Vec model.
+        _align_models: Aligns the Word2Vec models.
+        _check_inference_requirements: Checks the requirements for inference.
     """
     def __init__(
             self,
-            how: Union[str, List[datetime]] = "M",
+            how: Union[str, List[datetime]] = "ME",
             min_count: int = 2,
             min_docs_per_chunk: int = None,
             window: int = 5,
@@ -52,6 +60,8 @@ class Word2VecSemanticShift:
             comment: Optional[str] = None,
             max_final_vocab: Optional[int] = None, 
             shrink_windows: bool = False,
+            bigram_min_count: int = 2,
+            bigram_threshold: float = 1.0,
             verbose: int = 1,
             ):
         """
@@ -80,6 +90,8 @@ class Word2VecSemanticShift:
         comment: A comment to be added to the model.
         max_final_vocab: Limits the vocabulary size when building the vocabulary. If there are more unique words than this, then prune the infrequent ones. Every 10 million word types need about 1GB of RAM. Set to None for no limit.
         shrink_windows: Whether to shrink the window size as training progresses.
+        bigram_min_count: Ignore all words and bigrams with total collected count lower than this value.
+        bigram_threshold: Represent a score threshold for forming the phrases (higher means fewer phrases). A phrase of words a and b is accepted if the score of the phrase is greater than threshold.
         verbose: The verbosity level. 0 does not print anything, 1 prints the current progress, 2 prints additional debug information.
         """
         self.trainer_args = {
@@ -106,51 +118,24 @@ class Word2VecSemanticShift:
             "max_final_vocab":max_final_vocab,
             "shrink_windows":shrink_windows
         }
-        self.reference = None
+        self._reference = None
         self.how = how
-        self.trainers: List[Word2VecTrainer] = []
         self.word2vecs: List[Word2Vec] = []
-        self.chunks: List[str] = []
         self.aligned_models: List[Word2Vec] = []
         self._verbose = verbose
         self.chunk_indices = None
+        self.sorting = None
         self.min_docs_per_chunk = min_docs_per_chunk
-
-    def is_trained(self) -> bool:
-        """
-        Returns whether the model has been trained or not.
-        Returns:
-            A boolean value indicating whether the model has been trained or not.
-        
-        Examples:
-            >>> ss = Word2VecSemanticShift()
-            >>> ss.is_trained()
-            False
-        """
-        return len(self.word2vecs) > 0
-    
-    def get_chunks(self) -> List[str]:
-        """Returns the chunks of the model.
-
-        Returns:
-            A list of the chunks of the model.
-        """
-        return self.chunks
-    
-    def get_reference(self) -> int:
-        """Returns the reference chunk index.
-
-        Returns:
-            The reference chunk index.
-        """
-        return self.reference
+        self.bigram_min_count = bigram_min_count
+        self.bigram_threshold = bigram_threshold
+        self._last_text = 0
 
     def fit(
             self,
             texts: pd.DataFrame,
             text_column: str = "text",
             date_column: str = "date",
-            date_format: str = "%Y-%m-%d",
+            date_format: str = None,
             align_reference: int = -1,
             epochs: int = 5,
             start_alpha: float = 0.025,
@@ -174,67 +159,30 @@ class Word2VecSemanticShift:
             >>> ss.fit(data, text_column="text", date_column="date", date_format="%Y-%m-%d", align_reference=-1, epochs=5, start_alpha=0.025, end_alpha=0.0001, date_groupby="year")
         """
 
-        if not isinstance(texts, pd.DataFrame):
-            raise TypeError("texts must be a pandas DataFrame!")
-        if not isinstance(text_column, str):
-            raise TypeError("text_column must be a string!")
-        if text_column not in texts.columns:
-            raise ValueError("texts must contain the column specified in text_column!")
-        if not isinstance(date_column, str):
-            raise TypeError("date_column must be a string!")
-        if date_column not in texts.columns:
-            raise ValueError("texts must contain the column specified in date_column!")
-        
-        self._text_column = text_column
-        self._date_column = date_column
-
-
-        if isinstance(texts[self._text_column].iloc[0], list):
-            if not isinstance(texts[self._text_column].iloc[0][0], str):
-                raise TypeError("text column must be contain list of strings or lists of lists of strings!")
-        elif isinstance(texts[self._text_column].iloc[0], str):
-            texts[self._text_column] = texts[self._text_column].apply(lambda x: x.split())
-            warnings.warn("The elements of the text column contain a string. "
-                          "Beware that the texts might not be preprocessed")
-        else:
-            raise TypeError(
-                "text column must be contain list of strings or lists of lists of strings!")
-        
+        self._prepare_for_training(texts, text_column, date_column, date_format)
         if self.is_trained():
             raise ValueError("The model has already been trained. Call 'fit_update' to update the model.")
-
-        texts[self._date_column] = pd.to_datetime(texts[self._date_column], format=date_format)
-        texts.sort_values(by=self._date_column, inplace=True)
-        self.chunk_indices = _get_time_indices(texts, how=self.how, date_column=self._date_column, min_docs_per_chunk=self.min_docs_per_chunk)
 
         iterator = self.chunk_indices.iterrows()
         if self._verbose > 0:
             iterator = tqdm(iterator, total=len(self.chunk_indices), unit="chunk")
         for i, row in enumerate(iterator):
-            date = self.chunk_indices["Date"].iloc[i]
-            trainer = Word2VecTrainer(**self.trainer_args)
             if self._verbose > 0 and i < len(self.chunk_indices) - 1:
                 iterator.set_description(f"Chunk {i + 1}/{len(self.chunk_indices)}")
-            if i == 0:  # fit warmup chunks
-                trainer.train(texts[self._text_column].iloc[:self.chunk_indices["chunk_start"].iloc[1]],
-                              epochs=epochs, start_alpha=start_alpha, end_alpha=end_alpha)
-                continue
-            end = len(texts) if i + 1 >= len(self.chunk_indices) else int(self.chunk_indices.iloc[i + 1]["chunk_start"] - 1)
-            trainer.train(texts[text_column].iloc[self.chunk_indices["chunk_start"].iloc[i]:end], epochs=epochs, start_alpha=start_alpha, end_alpha=end_alpha)
+            end = len(texts) if i + 1 >= len(self.chunk_indices) else int(self.chunk_indices.iloc[i + 1]["chunk_start"])
+            model = self._train_word2vec(texts[text_column].iloc[self.chunk_indices["chunk_start"].iloc[i]:end], epochs=epochs, start_alpha=start_alpha, end_alpha=end_alpha)
+            self.word2vecs.append(model)
 
-            self.trainers.append(trainer)
-            self.word2vecs.append(trainer.get_model())
-            self.chunks.append(str(date))
-
-        
-        self.reference = align_reference
+        self._reference = align_reference
         self._align_models(self.word2vecs, reference=align_reference)
+        self._last_text = len(texts)
 
     def fit_update(
             self,
             texts: pd.DataFrame,
             text_column: str = "text",
             date_column: str = "date",
+            date_format: str = None,
             align_reference: int = -1,
             epochs: int = 5,
             start_alpha: float = 0.025,
@@ -250,42 +198,15 @@ class Word2VecSemanticShift:
             epochs: The number of epochs to train the models.
             start_alpha: The initial learning rate.
             end_alpha: The final learning rate.
-        
-        Examples:
-            >>> ss = Word2VecSemanticShift()
-            >>> data = pd.read_csv("data.csv")
-            >>> ss.fit_update(data, text_column="text", date_column="date", align_reference=-1, epochs=5, start_alpha=0.025, end_alpha=0.0001)
         """
-
-        if self.word2vecs is None:
-            raise ValueError("Initial training has not been done. Call fit first.")
-        
-        if not isinstance(texts, pd.DataFrame):
-            raise TypeError("texts must be a pandas DataFrame!")
-        if not isinstance(text_column, str):
-            raise TypeError("text_column must be a string!")
-        if text_column not in texts.columns:
-            raise ValueError("texts must contain the column specified in text_column!")
-        if not isinstance(date_column, str):
-            raise TypeError("date_column must be a string!")
-        if date_column not in texts.columns:
-            raise ValueError("texts must contain the column specified in date_column!")
-        self._text_column = text_column
-        self._date_column = date_column
-
-        if not isinstance(texts[self._text_column].iloc[0], str):
-            raise TypeError("The elements of the 'texts' column of texts must each contain a string!")
-        
-        if not self.is_trained():
+        if self.word2vecs is None or not self.is_trained():
             raise ValueError("The model has not been trained. Call 'fit' to train the model first.")
 
-        texts[date_column] = pd.to_datetime(texts[date_column])
-        texts.sort_values(by=date_column, inplace=True)
-
+        self._prepare_for_training(texts, text_column, date_column, date_format)
         grouped_texts = texts.groupby(date_column)
         for date, group in grouped_texts:
             try:
-                idx = self.chunks.index(str(date))
+                idx = self.chunk_indices["Date"].apply(str).tolist().index(str(date))
             except ValueError:
                 raise ValueError(f"The date: {str(date)}, is not in the training chunks. Call fit instead.")
             # print(f"Training on chunk: {date}")
@@ -293,123 +214,50 @@ class Word2VecSemanticShift:
             self.word2vecs[idx] = self.trainers[idx].get_model()
 
 
-        self.reference = align_reference
+        self._reference = align_reference
         self._align_models(self.word2vecs, reference=align_reference)
 
-    def _align_models(self, models: List[Word2Vec], reference: int = -1) -> None:
-        """Aligns the Word2Vec models.
+    def is_trained(self) -> bool:
+        """Returns whether the model has been trained or not.
 
-        Args:
-            models: The Word2Vec models to align.
-            reference: The reference chunk index.
-        """
-        self.aligner = Word2VecAlign(models)
-        self.aligned_models = self.aligner.align(reference=reference)
-
-    def save(self, path: str) -> None:
-        """Saves the Word2Vec Semantic Shift model to the given path as a
-        .pickle-file.
-
-        Args:
-            path: The path to which the Word2Vec Semantic Shift model should be saved.
         Returns:
-            None
+            A boolean value indicating whether the model has been trained or not.
         """
-        if not isinstance(path, str):
-            raise TypeError("path must be a string!")
-        pickle.dump(self, open(path, "wb"))
+        return len(self.word2vecs) > 0
 
-    def load(self, path: str) -> None:
-        """Loads a pickled Word2Vec Semantic Shift model from the given path.
+    def get_vector(self, word, chunk_index, aligned=True):
+        """Returns the vector of a word in a chunk.
 
         Args:
-            path: The path from which the Word2Vec Semantic Shift model should be loaded.
+            word: The word to get the vector of.
+            chunk_index: The index of the chunk.
+            aligned: Whether to get the vector from the aligned models or not.
         Returns:
-            None
+            The vector of the word.
         """
-        if not isinstance(path, str):
-            raise TypeError("path must be a string!")
-        loaded = pickle.load(open(path, "rb"))
-        self.__dict__ = loaded.__dict__
+        self._check_inference_requirements(aligned)
+        if aligned:
+            return self.aligned_models[chunk_index].wv.get_vector(word)
+        else:
+            return self.word2vecs[chunk_index].wv.get_vector(word)
+
+    def get_reference(self) -> int:
+        """Returns the reference chunk index.
+
+        Returns:
+            The reference chunk index.
+        """
+        return self._reference
 
     def get_parameters(self) -> dict:
-        """
-        Returns the parameters of the Word2Vec models.
+        """Returns the parameters of the Word2Vec models.
+
         Returns:
             A dictionary containing the parameters of the Word2Vec models.
-        
-        Examples:
-            >>> ss = Word2VecSemanticShift()
-            >>> ss.get_parameters()
-            {'min_count': 2, 'window': 5, 'negative': 5, 'ns_exponent': 0.75, 'vector_size': 300, 'alpha': 0.025, 'max_vocab_size': None, 'sample': 0.001, 'seed': 1, 'workers': 3, 'min_alpha': 0.0001, 'sg': 0, 'hs': 0, 'cbow_mean': 1, 'null_word': 0, 'trim_rule': None, 'sorted_vocab': 1, 'compute_loss': False, 'callbacks': None, 'comment': None, 'max_final_vocab': None, 'shrink_windows': False}
-        
         """
         return self.__dict__.copy()
 
-    def infer_vector(self, word: str, chunk_index: int, norm: bool = False, aligned: bool = True) -> np.ndarray:
-        """
-        Infers the vector of a word.
-        Args:
-            word: The word to infer the vector.
-            chunk_index: The index of the chunk.
-            norm: Whether to normalize the vector or not.
-            aligned: Whether to infer the vector from the aligned models or not.
-        Returns:
-            The inferred vector of the word.
-        
-        Examples:
-            >>> ss = Word2VecSemanticShift()
-            >>> ss.infer_vector("trump", 0, aligned=True)
-            array([ 0.001,  0.002,  0.003, ..., -0.001,  0.002,  0.001], dtype = float32)
-        """
-        if aligned:
-            if not self.aligned_models:
-                raise ValueError("Models are not aligned. Call fit or fit_update first.")
-
-            inferencer = Word2VecInference(self.aligned_models[chunk_index])
-            return inferencer.infer_vector(word, norm=norm)
-        
-        else:
-            if not self.word2vecs:
-                raise ValueError("Models are not trained. Call fit or fit_update first.")
-
-            inferencer = Word2VecInference(self.word2vecs[chunk_index])
-            return inferencer.infer_vector(word, norm=norm)
-
-    def top_words(self, word: str, chuck_index: int, k: int = 10, pos_tag: Union[bool, str, List[str]] = False, aligned: bool = True) -> Tuple[List[str], List[float]]:
-        """
-        Returns the top words similar to a word.
-        Args:
-            word: The word to get the top words.
-            chuck_index: The index of the chunk.
-            k: The number of top words to return.
-            pos_tag: The part-of-speech tag of the words to return.
-            aligned: Whether to get the top words from the aligned models or not.
-        Returns:
-            A tuple containing the top words and their similarities.
-        
-        Examples:
-            >>> ss = Word2VecSemanticShift()
-            >>> ss.top_words("trump", 0, k=2, pos_tag=False, aligned=True)
-            (['donald', 'president'], [0.8, 0.7])
-        """
-        if aligned:
-            if not self.aligned_models:
-                raise ValueError("Models are not aligned. Call fit or fit_update first.")
-
-            inferencer = Word2VecInference(self.aligned_models[chuck_index])
-            top_words, sims = inferencer.get_top_k_words(word, k=k, pos_tag=pos_tag)
-            return top_words, sims
-    
-        else:
-            if not self.word2vecs:
-                raise ValueError("Models are not trained. Call fit or fit_update first.")
-
-            inferencer = Word2VecInference(self.word2vecs[chuck_index])
-            top_words, sims = inferencer.get_top_k_words(word, k=k, pos_tag=pos_tag)
-            return top_words, sims
-       
-    def get_vocab(self, chunk: Union[int,str] = "reference") -> List[str]:
+    def get_vocab(self, chunk: Union[int, str] = "reference") -> List[str]:
         """Returns the vocabulary of a chunk.
 
         Args:
@@ -418,11 +266,47 @@ class Word2VecSemanticShift:
             The vocabulary of the chunk.
         """
         if chunk == "reference":
-            return self.word2vecs[-1].wv.index_to_key
+            return self.word2vecs[self._reference].wv.index_to_key
         elif isinstance(chunk, int):
             return self.word2vecs[chunk].wv.index_to_key
         else:
             raise ValueError("chunk must be an integer or 'reference'.")
+
+    def infer_vector(self, word: str, chunk_index: int, norm: bool = False,
+                     aligned: bool = True) -> np.ndarray:
+        """Infers the vector of a word.
+
+        Args:
+            word: The word to infer the vector.
+            chunk_index: The index of the chunk.
+            norm: Whether to normalize the vector or not.
+            aligned: Whether to infer the vector from the aligned models or not.
+        Returns:
+            The inferred vector of the word.
+        """
+        self._check_inference_requirements(aligned)
+        return self.aligned_models[chunk_index].wv.get_vector(word, norm=norm)
+
+    def top_words(self, word: str, chuck_index: int, k: int = 10, pos_tag: Union[bool, str, List[str]] = False, aligned: bool = True) -> Tuple[List[str], List[float]]:
+        """Returns the top words similar to a word.
+
+        Args:
+            word: The word to get the top words.
+            chuck_index: The index of the chunk.
+            k: The number of top words to return.
+            pos_tag: The part-of-speech tag of the words to return.
+            aligned: Whether to get the top words from the aligned models or not.
+        Returns:
+            A tuple containing the top words and their similarities.
+        """
+        self._check_inference_requirements(aligned)
+        if aligned:
+            return self._get_top_k_words(self.aligned_models[chuck_index],
+                                         word, k=k, pos_tagging=pos_tag)
+    
+        else:
+            return self._get_top_k_words(self.word2vecs[chuck_index], word,
+                                         k=k, pos_tagging=pos_tag)
 
     def visualize(
             self, 
@@ -438,8 +322,8 @@ class Word2VecSemanticShift:
             tsne_metric: str = 'euclidean',
             tsne_learning_rate: Union[str, int] = 'auto'
             ) -> None:
-        """
-        Visualizes the semantic shift of a word across chunks.
+        """Visualizes the semantic shift of a word across chunks.
+
         Args:
             main_word: The main word to visualize.
             chunks_tocompare: The chunks to compare. If None, all chunks will be compared.
@@ -452,53 +336,11 @@ class Word2VecSemanticShift:
             tsne_perplexity: The perplexity of the t-SNE algorithm.
             tsne_metric: The metric of the t-SNE algorithm.
             tsne_learning_rate: The learning rate of the t-SNE algorithm.
-        
-        Examples:
-            >>> ss = Word2VecSemanticShift()
-            >>> ss.visualize(
-            ...     reference=-1,
-            ...     chunks_tocompare=['1980', '2000', '2015', '2017'],
-            ...     main_word="trump",
-            ...     k=30,
-            ...     pos_tag=False,
-            ...     extra_words= [
-            ...         "game",
-            ...         "play",
-            ...         "king",
-            ...         "jack",
-            ...         "heart"
-            ...     ],
-            ...     ignore_words= [
-            ...         "use",
-            ...         "give",
-            ...         "would"
-            ...     ],
-            ...     aligned=True,
-            ...     tsne_perplexity=10,
-            ...     tsne_metric='euclidean',
-            ...     tsne_learning_rate='auto'
-            ... )
         """
-        if aligned:
-            if len(self.aligned_models) == 0:
-                raise ValueError("Models are not aligned. Call fit or fit_update first.")
-
-            inferencer = Word2VecInference(self.aligned_models[reference])
-        else:
-            if len(self.word2vecs) == 0:
-                raise ValueError("Models are not trained. Call fit or fit_update first.")
-
-            inferencer = Word2VecInference(self.word2vecs[reference])
-
+        self._check_inference_requirements(aligned)
         plot_vocab = extra_words if extra_words is not None else []
+        words, _ = self.top_words(main_word, reference, k=k, pos_tag=pos_tag, aligned=aligned)
 
-        try:
-            words, _ = inferencer.get_top_k_words(main_word, k=k, pos_tag=pos_tag)
-        
-        except ValueError:
-            raise ValueError(f"Word: {main_word} is not in the vocabulary of the model.")
-        
-        
         plot_vocab.extend(words)
         plot_vocab = list(set(plot_vocab))
 
@@ -513,9 +355,7 @@ class Word2VecSemanticShift:
         for word in plot_vocab:
             if word != main_word:
                 try:
-                    vector = inferencer.infer_vector(word)
-                    embeddings.append(vector)
-                
+                    embeddings.append(self.get_vector(word, reference, aligned=aligned))
                 except ValueError:
                     not_in_vocab.append(word)
 
@@ -523,26 +363,25 @@ class Word2VecSemanticShift:
             plot_vocab.remove(word)
 
         if chunks_tocompare is None:
-            chunks_tocompare = list(range(len(self.chunks)))
+            chunks_tocompare = list(range(len(self.chunk_indices)))
         
         else:
             for chunk in chunks_tocompare:
-                if chunk not in self.chunks:
-                    raise ValueError(f"Chunk: {chunk} is not in the training chunks. Choose from: {self.chunks}")
+                if chunk not in self.chunk_indices["Date"]:
+                    raise ValueError(f"Chunk: {chunk} is not in the training chunks. Choose from: {self.chunk_indices['Date']}")
 
-            chunks_tocompare = [self.chunks.index(chunk) for chunk in chunks_tocompare]
+            chunks_tocompare = [np.where(self.chunk_indices["Date"] == x)[0][0] for x in ["2022-01-31", "2022-12-31", "2022-11-30"]]
 
         main_word_embeddings = []
         # for chuck in range(len(self.chunks)):
         for chuck_idx in chunks_tocompare:
-            inferencer = Word2VecInference(self.aligned_models[chuck_idx])
             try:
-                vector = inferencer.infer_vector(main_word)
+                vector = self.aligned_models[chuck_idx].wv.get_vector(main_word)
                 main_word_embeddings.append(vector)
-                plot_vocab.append(f'{main_word}_{self.chunks[chuck_idx]}')
+                plot_vocab.append(f'{main_word}_{self.chunk_indices["Date"].iloc[chuck_idx]}')
 
             except ValueError:
-                raise ValueError(f"Word: {main_word} is not in the vocabulary of the model in chunk: {self.chunks[chuck_idx]}")
+                raise ValueError(f"Word: {main_word} is not in the vocabulary of the model in chunk: {self.chunk_indices['Date'].iloc[chuck_idx]}")
         
         X = np.array(embeddings + main_word_embeddings)
         n_samples = X.shape[0]
@@ -595,3 +434,256 @@ class Word2VecSemanticShift:
         # Show the plot
         plt.savefig(f'{main_word}.png')
         plt.show()
+
+
+    def save(self, path: str) -> None:
+        """Saves the Word2Vec Semantic Shift model to the given path as a
+        .pickle-file.
+
+        Args:
+            path: The path to which the Word2Vec Semantic Shift model should be saved.
+        Returns:
+            None
+        """
+        if not isinstance(path, str):
+            raise TypeError("path must be a string!")
+        pickle.dump(self, open(path, "wb"))
+
+    def load(self, path: str) -> None:
+        """Loads a pickled Word2Vec Semantic Shift model from the given path.
+
+        Args:
+            path: The path from which the Word2Vec Semantic Shift model should be loaded.
+        Returns:
+            None
+        """
+        if not isinstance(path, str):
+            raise TypeError("path must be a string!")
+        loaded = pickle.load(open(path, "rb"))
+        self.__dict__ = loaded.__dict__
+
+    def _get_top_k_words(
+            self,
+            model: Word2Vec,
+            main_word: str,
+            k: int = 10,
+            pos_tagging: Union[bool, str, List[str]] = False
+            ):
+        """Get the top k most similar words to a word in the vocabulary of the
+        model.
+
+        Args:
+            model: The Word2Vec model to get the top k most similar words of
+            main_word: The word to get the top k most similar words of
+            k: The number of words to return
+            pos_tagging: The part-of-speech tag of the words to return
+                         Can be a boolean, to return words with the same pos-tag
+                         as the main word, a string, to return words with the
+                         same pos-tag as the string, or a list of strings, to
+                         return words with the same pos-tag as any of the strings
+
+        Returns:
+            topk: Tuple of lists of the top k most similar words and their cosine similarities
+            similarity: The cosine similarities of the top k most similar words
+        """
+        try:
+            if isinstance(pos_tagging, str):
+                pos_tagging = [pos_tagging]
+            elif isinstance(pos_tagging, bool) and pos_tagging:
+                pos_tagging = [pos_tag([main_word])[0][1]]
+
+            for multiplier in range(2, 10):
+                sims = model.wv.most_similar(main_word, topn=k*multiplier)
+                words, similarities = tuple(map(list, zip(*sims)))
+                if pos_tagging:
+                    words = [word for word in words if
+                             pos_tag([word])[0][1] in pos_tagging]
+                if len(words) >= k:
+                    return words[:k], similarities[:k]
+            raise ValueError(f"Could not find {k} words with the specified pos-tagging.")
+
+        except KeyError:
+            raise ValueError(
+                f"Word '{main_word}' not in vocabulary. Please try another word.")
+
+    def _procrustes_align(self, reference_model, aligned_model):
+        """Original code: https://gist.github.com/quadrismegistus/09a93e219a6ffc4f216fb85235535faf
+        Procrustes align two gensim Word2Vec models (to allow for comparison between same word across models).
+
+        Args:
+            reference_model: The reference Word2Vec model.
+            aligned_model: The other Word2Vec model to be aligned.
+        Returns:
+            other_embed: The aligned Word2Vec model.
+        """
+        in_base_embed, in_other_embed = self._intersection_align(reference_model,
+                                                                 aligned_model)
+        in_base_embed.wv.fill_norms(force=True)
+        in_other_embed.wv.fill_norms(force=True)
+        base_vecs = in_base_embed.wv.get_normed_vectors()
+        other_vecs = in_other_embed.wv.get_normed_vectors()
+
+        svd_matrix = other_vecs.T.dot(base_vecs)
+        u, _, v = np.linalg.svd(svd_matrix)
+        orthogonal_matrix = u.dot(v)
+        aligned_model.wv.vectors = aligned_model.wv.vectors.dot(
+                                                    orthogonal_matrix)
+
+        return aligned_model
+
+    def _intersection_align(self, model1, model2):
+        """Original code: https://gist.github.com/quadrismegistus/09a93e219a6ffc4f216fb85235535faf
+        Intersect two gensim Word2Vec models, model1 and model2. Only the
+        shared vocabulary between them is kept. Indices are reorganized in
+        descending frequency.
+
+        Args:
+            model1: The first Word2Vec model.
+            model2: The second Word2Vec model.
+        Returns:
+            model1: The first Word2Vec model with the aligned vocabulary.
+            model2: The second Word2Vec model with the aligned vocabulary.
+        """
+        vocab_m1 = set(model1.wv.index_to_key)
+        vocab_m2 = set(model2.wv.index_to_key)
+        common_vocab = vocab_m1 & vocab_m2
+
+        if not vocab_m1 - common_vocab and not vocab_m2 - common_vocab:
+            return model1, model2
+
+        common_vocab = list(common_vocab)
+        common_vocab.sort(key=lambda w: model1.wv.get_vecattr(w, "count") +
+                                        model2.wv.get_vecattr(w, "count"),
+                          reverse=True)
+
+        for model in [model1, model2]:
+            indices = [model.wv.key_to_index[w] for w in common_vocab]
+            old_arr = model.wv.vectors
+            new_arr = np.array([old_arr[index] for index in indices])
+            model.wv.vectors = new_arr
+
+            new_key_to_index = {}
+            new_index_to_key = []
+            for new_index, key in enumerate(common_vocab):
+                new_key_to_index[key] = new_index
+                new_index_to_key.append(key)
+            model.wv.key_to_index = new_key_to_index
+            model.wv.index_to_key = new_index_to_key
+
+        return model1, model2
+
+    def _prepare_for_training(self, texts: pd.DataFrame, text_column: str,
+                              date_column: str, date_format: str,
+                              update: bool = False) -> pd.DataFrame:
+        """Prepares the texts for training.
+
+        Args:
+            texts: The texts to prepare.
+            text_column: The column containing the texts.
+            date_column: The column containing the dates.
+            date_format: The format of the dates.
+            update: Whether to update the model or not.
+        """
+        if not isinstance(texts, pd.DataFrame):
+            raise TypeError("texts must be a pandas DataFrame!")
+        if not isinstance(text_column, str):
+            raise TypeError("text_column must be a string!")
+        if text_column not in texts.columns:
+            raise ValueError(
+                "texts must contain the column specified in text_column!")
+        if not isinstance(date_column, str):
+            raise TypeError("date_column must be a string!")
+        if date_column not in texts.columns:
+            raise ValueError(
+                "texts must contain the column specified in date_column!")
+        if not isinstance(update, bool):
+            raise TypeError("update must be a boolean!")
+        self._text_column = text_column
+        self._date_column = date_column
+
+        if not isinstance(texts[self._text_column].iloc[0], list):
+            raise TypeError(
+                "The elements of the 'texts' column of texts must each contain a tokenized document as a list of strings!")
+
+        texts[self._date_column] = pd.to_datetime(texts[self._date_column],
+                                                  format=date_format)
+        texts.sort_values(by=self._date_column, inplace=True)
+        if update:
+            new_chunks = _get_time_indices(texts, how=self.how,
+                                                   date_column=self._date_column,
+                                                   min_docs_per_chunk=self.min_docs_per_chunk)
+            new_chunks["chunk_start"] += self._last_text
+            self.chunk_indices = pd.concat([self.chunk_indices, new_chunks], ignore_index=True)
+        else:
+            self.chunk_indices = _get_time_indices(texts, how=self.how,
+                                                   date_column=self._date_column,
+                                                   min_docs_per_chunk=self.min_docs_per_chunk)
+        self.sorting = texts.index
+        return texts
+
+    def _train_word2vec(self, texts: List[str], epochs: int = 5,
+                        start_alpha: float = 0.025, end_alpha: float = 0.0001,
+                        update: bool = False, **kwargs) -> Word2Vec:
+        """Trainer function for the Word2Vec model.
+
+        Args:
+            texts: The texts to train the Word2Vec model on.
+            epochs: The number of epochs to train the model.
+            start_alpha: The initial learning rate.
+            end_alpha: The final learning rate.
+            update: Whether to update the model or not.
+        Returns:
+            The trained Word2Vec model.
+        """
+        model = Word2Vec(**self.trainer_args)
+        phrases = Phrases(texts, min_count=self.bigram_min_count,
+                          threshold=self.bigram_threshold)
+        bigram = Phraser(phrases)
+        sentences = bigram[texts]
+
+        model.build_vocab(sentences, update=update)
+        if len(model.wv.index_to_key) == 0:
+            raise RuntimeError(
+                "Vocabulary is empty, cannot proceed with training.")
+
+        total_examples = model.corpus_count
+        model.train(
+            sentences,
+            total_examples=total_examples,
+            epochs=epochs,
+            start_alpha=start_alpha,
+            end_alpha=end_alpha,
+            **kwargs
+            )
+        return model
+
+
+    def _align_models(self, models: List[Word2Vec], reference: int = -1) -> None:
+        """Aligns the Word2Vec models.
+
+        Args:
+            models: The Word2Vec models to align.
+            reference: The reference chunk index.
+        """
+        self.aligned_models = []
+        for i, model in enumerate(models):
+            if i == reference:
+                self.aligned_models.append(model)
+
+            self.aligned_models.append(self._procrustes_align(
+                models[self._reference],
+                model))
+    def _check_inference_requirements(self, aligned):
+        """Checks the requirements for inference.
+
+        Args:
+            aligned: Whether to check the requirements for aligned models or not.
+        """
+        if aligned:
+            if not self.aligned_models:
+                raise ValueError("Models are not aligned. Call fit or "
+                                 "fit_update first.")
+        else:
+            if not self.word2vecs:
+                raise ValueError("Models are not trained. Call fit or "
+                                 "fit_update first.")

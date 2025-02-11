@@ -30,13 +30,6 @@ If you have implemented temporal text analysis methods in Python, we would be ha
 ## Installation
 You can install the package by cloning the GitHub repository or by using pip.
 
-### Cloning the repository
-```bash
-git clone https://github.com/K-RLange/ttta.git
-cd ttta
-pip install .
-```
-
 ### Using pip
 ```bash
 pip install git+https://github.com/K-RLange/ttta.git
@@ -44,6 +37,13 @@ pip install git+https://github.com/K-RLange/ttta.git
 or
 ```bash
 pip install ttta
+```
+
+### Cloning the repository
+```bash
+git clone https://github.com/K-RLange/ttta.git
+cd ttta
+pip install .
 ```
 
 ## Getting started
@@ -56,6 +56,6 @@ If you use ttta in your research, please cite the package as follows:
   author = {Kai-Robin Lange, Lars Grönberg, Niklas Benner, Imene Kolli, Aymane Hachcham, Jonas Rieger and Carsten Jentsch},
   title = {ttta: Tools for temporal text analysis},
   url = {https://github.com/K-RLange/ttta},
-    version = {0.9.1},
+    version = {0.9.6},
 }
 ```
