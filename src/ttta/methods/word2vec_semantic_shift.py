@@ -1,5 +1,6 @@
 import pickle
 import warnings
+import copy
 from nltk.tag import pos_tag
 from typing import List, Union, Optional, Tuple, Literal
 import pandas as pd
@@ -38,7 +39,7 @@ class Word2VecSemanticShift:
             self,
             how: Union[str, List[datetime]] = "ME",
             min_count: int = 2,
-            min_docs_per_chunk: int = None,
+            min_docs_per_chunk: int = 2,
             window: int = 5,
             negative: int = 5,
             ns_exponent: float = 0.75,
@@ -173,6 +174,7 @@ class Word2VecSemanticShift:
             model = self._train_word2vec(texts[text_column].iloc[self.chunk_indices["chunk_start"].iloc[i]:end], epochs=epochs, start_alpha=start_alpha, end_alpha=end_alpha)
             self.word2vecs.append(model)
 
+
         self._reference = align_reference
         self._align_models(self.word2vecs, reference=align_reference)
         self._last_text = len(texts)
@@ -202,20 +204,32 @@ class Word2VecSemanticShift:
         if self.word2vecs is None or not self.is_trained():
             raise ValueError("The model has not been trained. Call 'fit' to train the model first.")
 
-        self._prepare_for_training(texts, text_column, date_column, date_format)
-        grouped_texts = texts.groupby(date_column)
-        for date, group in grouped_texts:
-            try:
-                idx = self.chunk_indices["Date"].apply(str).tolist().index(str(date))
-            except ValueError:
-                raise ValueError(f"The date: {str(date)}, is not in the training chunks. Call fit instead.")
-            # print(f"Training on chunk: {date}")
-            self.trainers[idx].train(group[text_column].tolist(), epochs=epochs, start_alpha=start_alpha, end_alpha=end_alpha, update=True)
-            self.word2vecs[idx] = self.trainers[idx].get_model()
-
+        last_trained = len(self.chunk_indices)
+        self._prepare_for_training(texts, text_column, date_column, date_format, update=True)
+        iterator = self.chunk_indices.iloc[last_trained:].iterrows()
+        if self._verbose > 0:
+            iterator = tqdm(iterator, unit="chunk")
+        for i, row in iterator:
+            if self._verbose and i < len(self.chunk_indices) - 1:
+                iterator.set_description(
+                    f"Processing {self.chunk_indices.iloc[i + 1]['chunk_start'] - 1 - self.chunk_indices.iloc[i]['chunk_start']} documents in "
+                    f"chunk {self.chunk_indices.iloc[i][self._date_column].strftime('%Y-%m-%d')}")
+            end = self.chunk_indices.iloc[i + 1]["chunk_start"] if i + 1 < len(
+                self.chunk_indices) else (len(texts) +
+                                          self._last_text + 1)
+            model = self._train_word2vec(texts[text_column].iloc[
+                                         int(self.chunk_indices[
+                                              "chunk_start"].iloc[
+                                              i] - self._last_text):int(
+                                                     end - self._last_text)],
+                                         epochs=epochs,
+                                         start_alpha=start_alpha,
+                                         end_alpha=end_alpha)
+            self.word2vecs.append(model)
 
         self._reference = align_reference
         self._align_models(self.word2vecs, reference=align_reference)
+        self._last_text += len(texts)
 
     def is_trained(self) -> bool:
         """Returns whether the model has been trained or not.
@@ -358,19 +372,16 @@ class Word2VecSemanticShift:
                     embeddings.append(self.get_vector(word, reference, aligned=aligned))
                 except ValueError:
                     not_in_vocab.append(word)
-
         for word in not_in_vocab:
             plot_vocab.remove(word)
-
         if chunks_tocompare is None:
             chunks_tocompare = list(range(len(self.chunk_indices)))
-        
         else:
             for chunk in chunks_tocompare:
-                if chunk not in self.chunk_indices["Date"]:
-                    raise ValueError(f"Chunk: {chunk} is not in the training chunks. Choose from: {self.chunk_indices['Date']}")
+                if chunk not in self.chunk_indices[self._date_column].tolist():
+                    raise ValueError(f"Chunk: {chunk} is not in the training chunks. Choose from: {self.chunk_indices[self._date_column]}")
 
-            chunks_tocompare = [np.where(self.chunk_indices["Date"] == x)[0][0] for x in ["2022-01-31", "2022-12-31", "2022-11-30"]]
+            chunks_tocompare = [np.where(self.chunk_indices[self._date_column] == x)[0][0] for x in chunks_tocompare]
 
         main_word_embeddings = []
         # for chuck in range(len(self.chunks)):
@@ -378,20 +389,15 @@ class Word2VecSemanticShift:
             try:
                 vector = self.aligned_models[chuck_idx].wv.get_vector(main_word)
                 main_word_embeddings.append(vector)
-                plot_vocab.append(f'{main_word}_{self.chunk_indices["Date"].iloc[chuck_idx]}')
-
+                plot_vocab.append(f'{main_word}_{self.chunk_indices[self._date_column].iloc[chuck_idx]}')
             except ValueError:
-                raise ValueError(f"Word: {main_word} is not in the vocabulary of the model in chunk: {self.chunk_indices['Date'].iloc[chuck_idx]}")
-        
+                raise ValueError(f"Word: {main_word} is not in the vocabulary of the model in chunk: {self.chunk_indices[self._date_column].iloc[chuck_idx]}")
         X = np.array(embeddings + main_word_embeddings)
         n_samples = X.shape[0]
         if n_samples < 2:
             raise ValueError("Number of samples must be greater than 1.")
-        
         if tsne_perplexity > n_samples - 1:
             raise ValueError(f"Perplexity must be less than the number of samples - 1= {n_samples - 1}")
-        
-
         X_embedded = TSNE(
             metric= tsne_metric,
             learning_rate= tsne_learning_rate,
@@ -501,7 +507,6 @@ class Word2VecSemanticShift:
                 if len(words) >= k:
                     return words[:k], similarities[:k]
             raise ValueError(f"Could not find {k} words with the specified pos-tagging.")
-
         except KeyError:
             raise ValueError(
                 f"Word '{main_word}' not in vocabulary. Please try another word.")
@@ -667,12 +672,13 @@ class Word2VecSemanticShift:
         """
         self.aligned_models = []
         for i, model in enumerate(models):
-            if i == reference:
-                self.aligned_models.append(model)
-
+            new_model = copy.deepcopy(model)
+            reference_model = copy.deepcopy(models[reference])
+            if i == reference or (i == len(models) + reference and reference < 0):
+                self.aligned_models.append(new_model)
             self.aligned_models.append(self._procrustes_align(
-                models[self._reference],
-                model))
+                reference_model,
+                new_model))
     def _check_inference_requirements(self, aligned):
         """Checks the requirements for inference.
 
