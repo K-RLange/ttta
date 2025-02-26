@@ -61,7 +61,7 @@ An example of the evolution of the static diachronic embedding of the word Ukrai
 
 ![Development of the diachronic embedding of the word "ukraine" from 2004 to 2024 in the German Bundestag. Along with the word itself, its closest neighbors to visualize the target word's track across time. The dimension of the embeddings has been lowered using TSNE.\label{fig:ukraineplot}](ukraine.png)
 
-The Poisson Reduced Rank model [@PRR1, @PRR2] is a document scaling model, which uses a poisson-distribution based time series analysis to model the word usage of different entities (e.g. parties when analyzing party manifestos). With this model, the user are able to analyze, how the entities move in a latent space that is generated using the word usage counts.
+The Poisson Reduced Rank model [@PRR1; @PRR2] is a document scaling model, which uses a poisson-distribution based time series analysis to model the word usage of different entities (e.g. parties when analyzing party manifestos). With this model, the user are able to analyze, how the entities move in a latent space that is generated using the word usage counts.
 
 In future work, we plan to add more tools for analyzing temporal text data, as we consider the current state of the package to only be the beginning of development.
 
