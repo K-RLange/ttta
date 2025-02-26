@@ -4,8 +4,9 @@ tags:
 - Python
 - natural language processing
 - time series
-- diachronic embeddings
 - dynamic topic modeling
+- change detection
+- diachronic embeddings
 - document scaling
 authors:
   - name: Kai-Robin Lange
@@ -17,7 +18,7 @@ authors:
   - name: Aymane Hachcham
     affiliation: 3
   - name: Imene Kolli
-    affiliation: 4
+    affiliation: 3
   - name: Jonas Rieger
     affiliation: 1
   - name: Carsten Jentsch
@@ -28,10 +29,8 @@ affiliations:
    index: 1
  - name: RWI - Leibniz Institute for Economic Research
    index: 2
- - name: ...
-   index: 3
  - name: University of Zurich
-   index: 4
+   index: 3
 citation_author: Lange et. al.
 date: \today
 year: 2025
