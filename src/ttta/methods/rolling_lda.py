@@ -651,6 +651,8 @@ class RollingLDA:
                     raise ValueError
             except ValueError:
                 raise TypeError("chunk must be an integer or None!")
+        if not isinstance(average, bool):
+            raise TypeError("average must be a boolean!")
         if average and index is not None:
             raise ValueError("average and index cannot be used together!")
         if chunk is not None and index is not None:
@@ -666,7 +668,7 @@ class RollingLDA:
         if average:
             dtom = dtom.sum(axis=0)
             dtom = dtom.reshape((1, self._K))
-        elif index:
+        elif index is not None:
             dtom = dtom[index, :]
             dtom = dtom.reshape((1, self._K))
         row_sums = dtom.sum(axis=1, keepdims=True)
@@ -712,6 +714,14 @@ class RollingLDA:
                     raise ValueError
             except ValueError:
                 raise TypeError("number must be an integer!")
+        if not isinstance(min_length, int):
+            try:
+                if min_length == int(min_length):
+                    min_length = int(min_length)
+                else:
+                    raise ValueError
+            except ValueError:
+                raise TypeError("min_length must be an integer!")
 
         if chunk is None:
             topic_shares = self.topic_shares().reset_index(drop=True)
@@ -720,7 +730,7 @@ class RollingLDA:
             return topic_shares.nlargest(number)
         else:
             topic_shares = self.topic_shares(chunk=chunk).reset_index(drop=True)
-            if chunk < len(self.chunk_indices) - 1:
+            if chunk < len(self.chunk_indices) - 1 and chunk != -1:
                 topic_shares = topic_shares.iloc[self.lda._len_of_docs[
                                                  self.chunk_indices.iloc[
                                                      chunk]["chunk_start"]:
@@ -732,7 +742,7 @@ class RollingLDA:
                                                  self.chunk_indices.iloc[
                                                      chunk]["chunk_start"]:
                                                  self._last_text[
-                                                     "index"]] > min_length, topic]
+                                                     "index"]+1] > min_length, topic]
             return topic_shares.nlargest(number)
 
     def topic_evolution(self, topic: int = None, path: str = None, show: bool = True,
@@ -755,9 +765,17 @@ class RollingLDA:
                     raise ValueError
             except ValueError:
                 raise TypeError("topic must be an integer or None!")
+        if not isinstance(path, str) and path is not None:
+            raise TypeError("path must be a string or None!")
+        if not isinstance(show, bool):
+            raise TypeError("show must be a boolean!")
+        if not isinstance(figsize, tuple) or isinstance(figsize, list) or len(figsize) != 2:
+            raise TypeError("figsize must be a tuple!")
+        if topic > self._K:
+            raise IndexError("The topic index is out of bounds!")
         if path is not None and not isinstance(path, str):
             raise TypeError("path must be a string!")
-        topic_shares = self.topic_shares(by="chunk")
+        topic_shares = self.topic_shares()
         topic_shares = topic_shares.reset_index(drop=True)
         if topic is not None:
             topic_shares = topic_shares[f"Topic {topic + 1}"]
@@ -792,6 +810,10 @@ class RollingLDA:
         """
         if not isinstance(texts, list):
             raise TypeError("texts must be a list of tokenized documents!")
+        if not all([isinstance(x, list) for x in texts]):
+            raise TypeError("texts must be a list of tokenized documents!")
+        if not isinstance(texts[0][0], str):
+            raise TypeError("texts must be a list of tokenized documents!")
         if not isinstance(chunk, int) and chunk is not None:
             try:
                 if chunk == int(chunk):
@@ -815,7 +837,8 @@ class RollingLDA:
                 seed = int(seed)
             except:
                 raise TypeError("seed must be an integer!")
-
+        if not isinstance(init_as_max_wt_prob, bool):
+            raise TypeError("init_as_max_wt_prob must be a boolean!")
         assignments = self.lda.get_assignment_vec()
         words = self.lda.get_word_vec()
         len_of_docs = self.lda._len_of_docs

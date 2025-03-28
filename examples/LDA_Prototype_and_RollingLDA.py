@@ -28,13 +28,14 @@ df["Speech_processed"] = df["Speech_processed"].apply(lambda x: eval(x))
 # parameters in fit. Here, we train an LDA with 10 topics, 3 LDAs to be
 # compared for LDAPrototype, and a minimum threshold of 3 (absolute) and
 # 0.001 (relative) for topic matching in the prototype step.
-lda = LDAPrototype(10, prototype=3, topic_threshold=[3, 0.001], verbose=1,
-                   seed=1)
+lda = LDAPrototype(10, prototype=3, topic_threshold=[3, 0.001], verbose=1, seed=1)
 # verbose can be set to 0 for no output or 2 for more output
-lda.fit(df["Speech_processed"], epochs=15)
+lda.fit(df["Speech_processed"], epochs=100)
+word_topic_matrix, document_topic_matrix, vocab = lda.inference(df["Speech_processed"].iloc[:50].tolist(), seed=1)
+print(lda.top_words(word_topic_matrix=word_topic_matrix, vocab=vocab))
 print(lda.top_words(10))
 # You can also use pyLDAviz to visualize the topics
-lda.visualize()
+#lda.visualize()
 
 # -----------------------------RollingLDA-----------------------------
 # print(help(RollingLDA)) RollingLDA initializes an LDAPrototype object and
@@ -51,15 +52,26 @@ lda.visualize()
 # The fit method expects a pandas DataFrame as input, whose relevant text
 # and date columns can be customized.
 
-roll = RollingLDA(10, prototype=3, topic_threshold=[3, 0.001],
-                  initial_epochs=150, subsequent_epochs=100, memory=2,
-                  warmup=2, how="1M")
+roll = RollingLDA(10, prototype=1, topic_threshold=[3, 0.001],
+                  initial_epochs=100, subsequent_epochs=100, memory=2,
+                  warmup=2, how="1ME")
 roll.fit(df, text_column="Speech_processed", date_column="Date")
 # The top words from individual chunks can be obtained...
+#roll.get_date_of_chunk(1)
+#roll.topic_shares()
+#roll.get_highest_topic_share(1, 1)
 print(roll.top_words(0))
 print(roll.top_words(2))
 # or combined from all chunks.
 print(roll.top_words())
+
+word_topic_matrix, document_topic_matrix, vocab = roll.inference(df["Speech_processed"].iloc[:50].tolist(), epochs=150, chunk=0, seed=1)
+print(roll.lda.top_words(word_topic_matrix=word_topic_matrix, vocab=vocab))
+word_topic_matrix, document_topic_matrix, vocab = roll.inference(df["Speech_processed"].iloc[:50].tolist(), chunk=2)
+print(roll.lda.top_words(word_topic_matrix=word_topic_matrix, vocab=vocab))
+word_topic_matrix, document_topic_matrix, vocab = roll.inference(df["Speech_processed"].iloc[:50].tolist())
+print(roll.lda.top_words(word_topic_matrix=word_topic_matrix, vocab=vocab))
+
 
 # You can print out the document-topic matrix
 print(roll.get_document_topic_matrix(1))

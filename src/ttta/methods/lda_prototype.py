@@ -4,6 +4,7 @@ import warnings
 from multiprocessing.pool import ThreadPool as Pool
 import faulthandler
 import matplotlib
+from collections import Counter
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -447,13 +448,16 @@ class LDAPrototype:
                                   self._K, epochs, 0)
         return assignment_vec, word_topic_matrix, document_topic_matrix
 
-    def get_word_topic_matrix(self, word_vec: np.ndarray = None, assignment_vec: np.ndarray = None) -> np.ndarray:
+    def get_word_topic_matrix(self, word_vec: np.ndarray = None,
+                              assignment_vec: np.ndarray = None,
+                              vocab: list = None) -> np.ndarray:
         """
         Create a word-topic matrix from a word vector and an assignment vector.
 
         Args:
             word_vec: word vector
             assignment_vec: assignment vector
+            vocab: vocabulary
         Returns:
             word_topic_matrix: word-topic matrix
         """
@@ -473,7 +477,11 @@ class LDAPrototype:
                 raise TypeError("assignment_vec must be a numpy array!")
         if word_vec.shape != assignment_vec.shape:
             raise ValueError("word_vec and assignment_vec must have the same shape!")
-        word_topic_matrix = np.zeros((len(self._vocab), self._K), dtype=np.uint64)
+        if vocab is None:
+            vocab = self._vocab
+        if not isinstance(vocab, list):
+            raise TypeError("vocab must be a list of strings!")
+        word_topic_matrix = np.zeros((len(vocab), self._K), dtype=np.uint64)
         load_wk_mat_func(word_vec, assignment_vec, word_topic_matrix, self._K)
         return word_topic_matrix
 
@@ -808,11 +816,8 @@ class LDAPrototype:
         if not isinstance(texts, list):
             if isinstance(texts, str):
                 raise TypeError("texts must be a list of lists of strings!")
-            try:
-                texts = list(texts)
-                if len(texts) <= 1:
-                    raise ValueError
-            except ValueError:
+            texts = list(texts)
+            if len(texts) <= 1:
                 raise TypeError("texts must be a list of lists of strings!")
         if not isinstance(texts[0], list):
             texts = [list(x) for x in texts]
@@ -850,12 +855,12 @@ class LDAPrototype:
         else:
             new_assignment_vec = np.random.randint(0, self._K, len(new_word_vec), dtype=np.uint32)
         new_document_topic_matrix = self.get_document_topic_matrix(new_doc_vec, new_assignment_vec)
-        new_word_topic_matrix = self.get_word_topic_matrix(new_word_vec, new_assignment_vec) + self.get_word_topic_matrix(word_vec, assignment_vec)
+        new_word_topic_matrix = self.get_word_topic_matrix(new_word_vec, new_assignment_vec, vocab) + self.get_word_topic_matrix(word_vec, assignment_vec, vocab)
         v_sum = np.sum(new_word_topic_matrix, axis=0)
         vanilla_gibbs_func(new_word_vec, new_assignment_vec, new_doc_vec, new_word_topic_matrix, new_document_topic_matrix, v_sum,
                            np.array(self._alpha.copy()), np.array(self._gamma.copy()), np.zeros((self._K,), dtype=np.longdouble),
                            self._K, epochs, 0, seed)
-        final_word_topic_matrix = self.get_word_topic_matrix(new_word_vec, new_assignment_vec)
+        final_word_topic_matrix = self.get_word_topic_matrix(new_word_vec, new_assignment_vec, vocab=vocab)
         return final_word_topic_matrix, new_document_topic_matrix, vocab
 
     def _create_inference_dtm(self, texts: List[List[str]]) -> csr_array:
@@ -867,20 +872,13 @@ class LDAPrototype:
             Document-term matrix
         """
         if not isinstance(texts, list):
-            try:
-                texts = list(texts)
-            except ValueError:
-                raise TypeError("texts must be a list of list of strings!")
+            if isinstance(texts, str):
+                raise TypeError("texts must be a list of lists of strings!")
+            texts = list(texts)
         if not isinstance(texts[0], list):
-            try:
-                texts = [list(x) for x in texts]
-            except ValueError:
-                raise TypeError("texts must be a list of lists of strings!")
+            texts = [list(x) for x in texts]
         if not isinstance(texts[0][0], str):
-            try:
-                texts = [[str(x) for x in text] for text in texts]
-            except ValueError:
-                raise TypeError("texts must be a list of lists of strings!")
+            texts = [[str(x) for x in text] for text in texts]
         counters = [Counter(doc) for doc in texts]
         vocab_index = {word: i for i, word in enumerate(self._vocab)}
         vocab_set = set(self._vocab)

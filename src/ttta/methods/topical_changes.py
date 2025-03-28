@@ -86,10 +86,11 @@ class TopicalChanges:
         self._simulate_changes(save_path, load_path)
 
 
-    def plot_distances(self, **plot_args) -> None:
+    def plot_distances(self, show: bool = True, **plot_args) -> None:
         """Plots the distances between the observed and simulated topic proportions.
 
         Args:
+            show: Whether to show the plot or not.
             **plot_args: Additional arguments to be passed to the matplotlib.pyplot.subplot function, e.g. nrows, ncols and figsize.
         Returns:
             None
@@ -121,7 +122,8 @@ class TopicalChanges:
             axs[i].tick_params(axis='x', rotation=45)
         plt.tight_layout()
         plt.suptitle("Topical Changes", fontsize=16, y=1.02)
-        plt.show()
+        if show:
+            plt.show()
 
     def word_impact(self, number: int = 5, date_format: str = "%Y-%m-%d", fast: bool = True) -> pd.DataFrame:
         """Calculate the leave one out word impact for each topic and change point.

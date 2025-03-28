@@ -72,7 +72,8 @@ def preprocess(texts, language="english", individual_stop_word_list=None, verbos
         processed_texts.append(text)
     return processed_texts
 
-def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5, dtm: np.ndarray = None) -> Tuple[np.ndarray, List[str]]:
+def create_dtm(texts: List[List[str]], vocab: List[str], min_count: int = 5,
+               dtm: np.ndarray = None) -> Tuple[np.ndarray, List[str]]:
     """Create a document-term matrix from a list of texts and updates the existing dtm if there is one.
     Stores both the dtm and the vocabulary in the class.
 
