@@ -133,7 +133,7 @@ class LDAPrototype:
         if not isinstance(max_assign, bool):
             raise TypeError("max_assign must be a boolean!")
         if seed is None:
-            seed = np.uint32(random.random())
+            seed = np.uint32(random.random() * 2**32)
         if not isinstance(seed, np.uint32):
             try:
                 seed = np.uint32(seed)
@@ -444,7 +444,8 @@ class LDAPrototype:
                            self._K, epochs, 0, self.seed[sample])
 
         if self._max_assign:
-            final_assignment_func(word_vec, assignment_vec, doc_vec, word_topic_matrix, document_topic_matrix, v_sum, self._alpha.copy(), self._gamma.copy(),
+            final_assignment_func(word_vec, assignment_vec, doc_vec, word_topic_matrix, document_topic_matrix, v_sum,
+                                  self._alpha.copy(), self._gamma.copy(),
                                   self._K, epochs, 0)
         return assignment_vec, word_topic_matrix, document_topic_matrix
 
