@@ -1,14 +1,14 @@
 [project]
 name = "ttta"
-version = "0.9.6"
+version = "0.9.7"
 description = "Tools for temporal text analysis: A Python package providing diachronic tools for text analysis."
 readme = {file= "README.md", content-type = "text/markdown"}
 authors = [
     {name = "Kai-Robin Lange", email = "kalange@statistik.tu-dortmund.de"},
     {name = "Lars Grönberg", email = "lars.groenberg@tu-dortmund.de"},
-    {name = "Niklas Benner", email = "benner@statistik.tu-dortmund.de"},
-    {name = "Imene Kolli", email = "imene.kolli@tu-dortmund.de"},
-    {name = "Aymane Hachcham", email = "aymane.hachcham@tu-dortmund.de"},
+    {name = "Niklas Benner", email = "niklas.benner@rwi-essen.de"},
+    {name = "Imene Kolli", email = "imene.kolli@df.uzh.ch"},
+    {name = "Aymane Hachcham", email = "aymane.hachcham@df.uzh.ch"},
     {name = "Jonas Rieger", email = "rieger@statistik.tu-dortmund.de"},
     {name = "Carsten Jentsch", email = "jentsch@statistik.tu-dortmund.de"}
 ]
@@ -28,22 +28,32 @@ dependencies = [
     "nltk",
     "Cython",
     "pandas",
-    "gensim>=4.0.0",
-    "matplotlib",
-    "spacy",
-    "joblib",
     "scipy",
     "numpy",
     "tqdm",
-    "seaborn",
-    "pyyaml",
-    "xmltodict",
     "scikit-learn",
-    "transformers>=4.46.3",
-    "torch",
     "HanTa",
-    "wasabi",
     "pyLDAvis>=3.4.0",
+    "matplotlib",
+    "seaborn",
+]
+
+[project.optional-dependencies]
+wordcloud = [
+    "wordcloud",
+]
+embeddings = [
+    "transformers>=4.46.3",
+    "gensim>=4.0.0",
+    "torch",
+    "wasabi",
+]
+all = [
+    "transformers>=4.46.3",
+    "gensim>=4.0.0",
+    "torch",
+    "wasabi",
+    "wordcloud",
 ]
 
 [build-system]

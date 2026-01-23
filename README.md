@@ -37,6 +37,19 @@ You can install the latest stable release of the package from pypi. If you want 
 pip install ttta
 ```
 
+Certain parts of the package require additional dependencies. You can install them using the following commands:
+```bash
+pip install ttta[wordcloud]   # For wordcloud visualizations
+```
+and 
+```bash
+pip install ttta[embeddings]  # For embedding-based methods
+```
+or simply 
+```bash
+pip install ttta[all]         # For all optional dependencies
+```
+
 ### Cloning the repository
 ```bash
 pip install git+https://github.com/K-RLange/ttta.git
@@ -54,10 +67,13 @@ You can find a tutorial on how to use each feature of the package in the [exampl
 ## Citing ttta
 If you use ttta in your research, please cite the package as follows:
 ```
-@software{ttta,
-  author = {Kai-Robin Lange, Lars Grönberg, Niklas Benner, Imene Kolli, Aymane Hachcham, Jonas Rieger and Carsten Jentsch},
-  title = {ttta: Tools for temporal text analysis},
-  url = {https://github.com/K-RLange/ttta},
-    version = {0.9.6},
+@misc{lange.ttta,
+      title={ttta: Tools for Temporal Text Analysis}, 
+      author={Kai-Robin Lange and Niklas Benner and Lars Grönberg and Aymane Hachcham and Imene Kolli and Jonas Rieger and Carsten Jentsch},
+      year={2025},
+      eprint={2503.02625},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2503.02625}, 
 }
 ```

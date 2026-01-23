@@ -19,6 +19,7 @@ from ..preprocessing.preprocess import create_dtm, get_word_and_doc_vector
 from pyLDAvis import prepare, save_html
 import webbrowser
 import random
+from ..preprocessing.dependency_check import DependencyChecker
 faulthandler.enable()
 
 class LDAPrototype:
@@ -601,10 +602,8 @@ class LDAPrototype:
         Returns:
             None
         """
-        try:
-            from wordcloud import WordCloud
-        except ImportError:
-            raise ImportError("You need to install the wordcloud library to use this function!")
+        DependencyChecker.require_wordcloud()
+        from wordcloud import WordCloud
         if not isinstance(topic, int) and topic is not None:
             try:
                 if int(topic) != topic:

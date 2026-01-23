@@ -18,7 +18,6 @@ import webbrowser
 from ..preprocessing import chunk_creation
 from pyLDAvis import prepare, save_html, display, show
 import random
-
 from ..preprocessing.chunk_creation import how_to_timedelta
 
 
@@ -791,8 +790,8 @@ class RollingLDA:
             raise TypeError("figsize must be a tuple!")
         if isinstance(topic, int) and topic > self._K:
             raise IndexError("The topic index is out of bounds!")
-        elif not topic == "None":
-            raise TypeError("topic must be an integer or 'None'!")
+        elif not isinstance(topic, int) and topic is not None:
+            raise TypeError("topic must be an integer or None!")
         if path is not None and not isinstance(path, str):
             raise TypeError("path must be a string!")
         if not isinstance(presentation, bool):
@@ -811,11 +810,12 @@ class RollingLDA:
         ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), fancybox=True, shadow=True, title="Topics")
         plt.xlabel("Chunk", fontsize=12, labelpad=10)
         plt.xticks(ticks=range(len(self.chunk_indices)),
-                   labels=self.chunk_indices["Date"].dt.strftime(date_format), rotation=45)
+                   labels=self.chunk_indices["date"].dt.strftime(date_format), rotation=45)
         plt.ylabel("Topic Share", fontsize=12, labelpad=10)
         plt.title("Topic Evolution", fontsize=14, fontweight="bold", pad=15)
         sns.despine(left=True, bottom=True)
-        plt.tight_layout(right=0.9)
+        plt.tight_layout()
+        plt.subplots_adjust(right=0.9)
         if path:
             plt.savefig(path)
         if show:
