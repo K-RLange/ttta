@@ -575,7 +575,7 @@ class LDAPrototype:
         if not isinstance(vocab, list):
             raise TypeError("vocab must be a list of strings!")
         if topic is None:
-            top_words = [self.top_words(number, k, importance, word_topic_matrix, vocab=vocab) for k in range(self._K)]
+            top_words = [self.top_words(number, k, importance, word_topic_matrix, vocab=vocab, presentation=presentation) for k in range(self._K)]
             if return_as_data_frame:
                 top_words = pd.DataFrame(np.asarray(top_words).transpose(), columns=[f"Topic {k + presentation}" for k in range(len(top_words))])
             return top_words
@@ -811,7 +811,6 @@ class LDAPrototype:
                 lambda x: f"Topic{int(x.replace('Topic', '')) - 1}" if x.startswith("Topic") else x)
             ldaviz_data.topic_coordinates["topics"] = ldaviz_data.topic_coordinates["topics"].apply(
                 lambda x: int(x) - 1)
-            ldaviz_data.topic_order = [x - 1 for x in ldaviz_data.topic_order]
         save_html(ldaviz_data, path)
         if open_browser:
             webbrowser.open_new_tab(path)

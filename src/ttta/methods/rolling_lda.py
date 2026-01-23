@@ -278,7 +278,7 @@ class RollingLDA:
         self._last_text["index"] += len(texts)
 
     def top_words(self, chunk: Union[int, str] = None, topic: int = None, number: int = 5, importance: bool = True,
-                  return_as_data_frame: bool = True) -> Union[List[str], List[List[str]]]:
+                  return_as_data_frame: bool = True, presentation: bool = False) -> Union[List[str], List[List[str]]]:
         """Return the top words for the given chunk and topic.
 
         Args:
@@ -288,6 +288,7 @@ class RollingLDA:
             number: The number of top words to return.
             importance: Whether the words should be weighted based on their importance to a topic or their absolute frequency.
             return_as_data_frame: Whether the top words should be returned as a pandas DataFrame.
+            presentation: Should the topic number be 1-indexed for presentation purposes?
         """
         if not isinstance(chunk, int) and chunk is not None and chunk != "all":
             try:
@@ -315,12 +316,14 @@ class RollingLDA:
                 raise TypeError("number must be an integer!")
         if not isinstance(importance, bool):
             raise TypeError("importance must be a boolean!")
+        if not isinstance(presentation, bool):
+            raise TypeError("presentation must be a boolean!")
         if chunk is None:
             word_topic_matrix = self.get_word_topic_matrix()
             return self.lda.top_words(number=number, topic=topic, importance=importance, word_topic_matrix=word_topic_matrix,
-                                      return_as_data_frame=return_as_data_frame)
+                                      return_as_data_frame=return_as_data_frame, presentation=presentation)
         elif chunk == "all":
-            top_words = [self.top_words(chunk=i, number=number, importance=importance, return_as_data_frame=return_as_data_frame) for i in range(len(self.chunk_indices))]
+            top_words = [self.top_words(chunk=i, number=number, importance=importance, return_as_data_frame=return_as_data_frame, presentation=presentation) for i in range(len(self.chunk_indices))]
             if return_as_data_frame:
                 top_words = pd.concat(top_words)
                 top_words.index = [f"Chunk {i+1}, word {x+1}" for i in range(len(self.chunk_indices)) for x in range(number)]
@@ -328,7 +331,7 @@ class RollingLDA:
         else:
             word_topic_matrix = self.get_word_topic_matrix(chunk)
             return self.lda.top_words(number=number, topic=topic, importance=importance, word_topic_matrix=word_topic_matrix,
-                                      return_as_data_frame=return_as_data_frame)
+                                      return_as_data_frame=return_as_data_frame, presentation=presentation)
 
     def get_word_topic_matrix(self, chunk: int = None) -> np.ndarray:
         """Return the topic assignments for the given chunk.
@@ -586,7 +589,6 @@ class RollingLDA:
                 lambda x: f"Topic{int(x.replace('Topic', '')) - 1}" if x.startswith("Topic") else x)
             ldaviz_data.topic_coordinates["topics"] = ldaviz_data.topic_coordinates["topics"].apply(
                 lambda x: int(x) - 1)
-            ldaviz_data.topic_order = [x - 1 for x in ldaviz_data.topic_order]
         save_html(ldaviz_data, path)
         if open_browser:
             webbrowser.open_new_tab(path)
@@ -629,13 +631,15 @@ class RollingLDA:
                 how_to_timedelta(self._how),
                 self.chunk_indices[self._date_column].iloc[chunk])
 
-    def topic_shares(self, index: int = None, chunk: int = "all", average: bool=False) -> pd.DataFrame:
+    def topic_shares(self, index: int = None, chunk: int = "all", average: bool=False,
+                     presentation: bool = False) -> pd.DataFrame:
         """Return the topic shares for the given chunk or document.
 
         Args:
             index: The index for which the topic shares should be returned.
             chunk: The chunk for which the topic shares should be returned. "all" to get the average for all chunks. None if an index is set.
             average: Whether the topic shares should be averaged over all documents in the chunk.
+            presentation: Should the topic number be 1-indexed for presentation purposes?
         Returns:
             The topic shares for the given chunk or all chunks.
         """
@@ -664,13 +668,16 @@ class RollingLDA:
             raise TypeError("average must be a boolean!")
         if average and index is not None:
             raise ValueError("average and index cannot be used together!")
+        if not isinstance(presentation, bool):
+            raise TypeError("presentation must be a boolean!")
         if chunk is not None and index is not None:
             raise ValueError("chunk and index cannot be used together!")
         if chunk is not None:
             if chunk == "all":
                 dtom = []
                 for chunk_idx in range(len(self.chunk_indices)):
-                    dtom.append(self.topic_shares(chunk=chunk_idx, average=True))
+                    dtom.append(self.topic_shares(chunk=chunk_idx, average=True,
+                                                  presentation=presentation))
                 return pd.concat(dtom).reset_index(drop=True)
             if chunk < 0:
                 chunk = len(self.chunk_indices) + chunk
@@ -688,7 +695,7 @@ class RollingLDA:
         row_sums = dtom.sum(axis=1, keepdims=True)
         row_sums = np.where(row_sums == 0, 1, row_sums)
         dtom = dtom / row_sums
-        return pd.DataFrame(dtom, columns=[f"Topic {i + 1}" for i in
+        return pd.DataFrame(dtom, columns=[f"Topic {i + presentation}" for i in
                                            range(self._K)])
 
     def get_highest_topic_share(self, topic: int, chunk: int = None,
@@ -796,10 +803,10 @@ class RollingLDA:
             raise TypeError("path must be a string!")
         if not isinstance(presentation, bool):
             raise TypeError("presentation must be a boolean!")
-        topic_shares = self.topic_shares()
+        topic_shares = self.topic_shares(presentation=presentation)
         topic_shares = topic_shares.reset_index(drop=True)
         if topic is not None:
-            topic_shares = topic_shares[f"Topic {topic + presentation}"]
+            topic_shares = topic_shares[f"Topic {topic}"]
         sns.set_theme(style="whitegrid")
         sns.set_palette("muted")
 
@@ -810,7 +817,7 @@ class RollingLDA:
         ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), fancybox=True, shadow=True, title="Topics")
         plt.xlabel("Chunk", fontsize=12, labelpad=10)
         plt.xticks(ticks=range(len(self.chunk_indices)),
-                   labels=self.chunk_indices["date"].dt.strftime(date_format), rotation=45)
+                   labels=self.chunk_indices["Date"].dt.strftime(date_format), rotation=45)
         plt.ylabel("Topic Share", fontsize=12, labelpad=10)
         plt.title("Topic Evolution", fontsize=14, fontweight="bold", pad=15)
         sns.despine(left=True, bottom=True)
