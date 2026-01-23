@@ -564,11 +564,11 @@ class RollingLDA:
         document_topic_matrix = self.get_document_topic_matrix(chunk)
         len_of_docs = self.lda._len_of_docs
         if chunk is not None:
-            if chunk == len(self.chunk_indices):
+            if chunk == len(self.chunk_indices) - 1:
                 len_of_docs = len_of_docs[self.chunk_indices["chunk_start"].iloc[chunk]:]
             else:
                 len_of_docs = len_of_docs[self.chunk_indices["chunk_start"].iloc[chunk]:self.chunk_indices["chunk_start"].iloc[chunk+1]]
-            len_of_docs = len_of_docs[document_topic_matrix.sum(axis=1) > 0]
+        len_of_docs = len_of_docs[len_of_docs > 0]
         document_topic_matrix = document_topic_matrix[document_topic_matrix.sum(axis=1) > 0, :]
         doc_topic_dists = (document_topic_matrix /
                             document_topic_matrix.sum(axis=1,
@@ -577,7 +577,7 @@ class RollingLDA:
             doc_topic_dists[:, 0] -= doc_topic_dists.sum(axis=1) - 1
         term_frequency = word_topic_matrix.sum(axis=1)
         vocab = self.lda.get_vocab()
-        ldaviz_data = prepare(topic_term_dists, doc_topic_dists, len_of_docs, vocab, term_frequency, number)
+        ldaviz_data = prepare(topic_term_dists, doc_topic_dists, len_of_docs, vocab, term_frequency, number, sort_topics=False)
         save_html(ldaviz_data, path)
         if open_browser:
             webbrowser.open_new_tab(path)

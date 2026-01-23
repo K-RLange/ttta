@@ -787,7 +787,7 @@ class LDAPrototype:
         if any(abs(topic_term_dists.sum(axis=1) - 1) < 1e-4):
             topic_term_dists[:, 0] -= topic_term_dists.sum(axis=1) - 1
         document_topic_matrix = self.get_document_topic_matrix()
-        len_of_docs = self._len_of_docs[document_topic_matrix.sum(axis=1) > 0]
+        len_of_docs = self._len_of_docs[self._len_of_docs > 0]
         document_topic_matrix = document_topic_matrix[document_topic_matrix.sum(axis=1) > 0, :]
         doc_topic_dists = (document_topic_matrix /
                             document_topic_matrix.sum(axis=1,
@@ -795,7 +795,7 @@ class LDAPrototype:
         if any(abs(doc_topic_dists.sum(axis=1) - 1) < 1e-4):
             doc_topic_dists[:, 0] -= doc_topic_dists.sum(axis=1) - 1
         term_frequency = word_topic_matrix.sum(axis=1)
-        ldaviz_data = prepare(topic_term_dists, doc_topic_dists, len_of_docs, self.get_vocab(), term_frequency, number)
+        ldaviz_data = prepare(topic_term_dists, doc_topic_dists, len_of_docs, self.get_vocab(), term_frequency, number, sort_topics=False)
         save_html(ldaviz_data, path)
         if open_browser:
             webbrowser.open_new_tab(path)
