@@ -620,12 +620,12 @@ class RollingLDA:
                 how_to_timedelta(self._how),
                 self.chunk_indices[self._date_column].iloc[chunk])
 
-    def topic_shares(self, index: int = None, chunk: int = None, average: bool=False) -> pd.DataFrame:
+    def topic_shares(self, index: int = None, chunk: int = "all", average: bool=False) -> pd.DataFrame:
         """Return the topic shares for the given chunk or document.
 
         Args:
             index: The index for which the topic shares should be returned.
-            chunk: The chunk for which the topic shares should be returned.
+            chunk: The chunk for which the topic shares should be returned. "all" to get the average for all chunks. None if an index is set.
             average: Whether the topic shares should be averaged over all documents in the chunk.
         Returns:
             The topic shares for the given chunk or all chunks.
@@ -643,7 +643,7 @@ class RollingLDA:
                 index = self._last_text["index"] + index
             if index < 0 or index >= self._last_text["index"]:
                 raise ValueError("The document index is out of bounds!")
-        if not isinstance(chunk, int) and chunk is not None:
+        if not isinstance(chunk, int) and chunk != "all" and chunk is not None:
             try:
                 if chunk == int(chunk):
                     chunk = int(chunk)
@@ -658,6 +658,11 @@ class RollingLDA:
         if chunk is not None and index is not None:
             raise ValueError("chunk and index cannot be used together!")
         if chunk is not None:
+            if chunk == "all":
+                dtom = []
+                for chunk_idx in range(len(self.chunk_indices)):
+                    dtom.append(self.topic_shares(chunk=chunk_idx, average=True))
+                return pd.concat(dtom).reset_index(drop=True)
             if chunk < 0:
                 chunk = len(self.chunk_indices) + chunk
             if chunk < 0 or chunk >= len(self.chunk_indices):
@@ -724,7 +729,7 @@ class RollingLDA:
                 raise TypeError("min_length must be an integer!")
 
         if chunk is None:
-            topic_shares = self.topic_shares().reset_index(drop=True)
+            topic_shares = self.topic_shares(chunk=None).reset_index(drop=True)
             topic_shares = topic_shares.iloc[:, topic]
             topic_shares = topic_shares.iloc[self.lda._len_of_docs > min_length]
             return topic_shares.nlargest(number)
@@ -746,7 +751,7 @@ class RollingLDA:
             return topic_shares.nlargest(number)
 
     def topic_evolution(self, topic: int = None, path: str = None, show: bool = True,
-                        figsize: Tuple[int, int] = (15, 5)) -> None:
+                        figsize: Tuple[int, int] = (15, 5), date_format: str = '%Y-%m-%d') -> None:
         """Plot the evolution of the topic shares over time.
 
         Args:
@@ -754,8 +759,9 @@ class RollingLDA:
             path: The path to save the plot to.
             show: Whether to show the plot.
             figsize: The size of the plot.
+            date_format: Define how granular the date labels on the x-axis should be.
         Returns:
-            None
+            The topic evolution as a pandas DataFrame. Can be used to create custom plots.
         """
         if not isinstance(topic, int) and topic is not None:
             try:
@@ -771,30 +777,36 @@ class RollingLDA:
             raise TypeError("show must be a boolean!")
         if not isinstance(figsize, tuple) or isinstance(figsize, list) or len(figsize) != 2:
             raise TypeError("figsize must be a tuple!")
-        if topic > self._K:
+        if isinstance(topic, int) and topic > self._K:
             raise IndexError("The topic index is out of bounds!")
+        elif not topic == "None":
+            raise TypeError("topic must be an integer or 'None'!")
         if path is not None and not isinstance(path, str):
             raise TypeError("path must be a string!")
         topic_shares = self.topic_shares()
         topic_shares = topic_shares.reset_index(drop=True)
         if topic is not None:
-            topic_shares = topic_shares[f"Topic {topic + 1}"]
+            topic_shares = topic_shares[f"Topic {topic}"]
         sns.set_theme(style="whitegrid")
         sns.set_palette("muted")
 
         topic_shares.plot(figsize=figsize)
         ax = plt.subplot(111)
         box = ax.get_position()
-        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+        ax.set_position((box.x0, box.y0, box.width * 0.9, box.height))
         ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), fancybox=True, shadow=True, title="Topics")
         plt.xlabel("Chunk", fontsize=12, labelpad=10)
+        plt.xticks(ticks=range(len(self.chunk_indices)),
+                   labels=self.chunk_indices["Date"].dt.strftime(date_format), rotation=45)
         plt.ylabel("Topic Share", fontsize=12, labelpad=10)
         plt.title("Topic Evolution", fontsize=14, fontweight="bold", pad=15)
         sns.despine(left=True, bottom=True)
+        plt.tight_layout(right=0.9)
         if path:
             plt.savefig(path)
         if show:
             plt.show()
+        return topic_shares
 
     def inference(self, texts: List[List[str]], chunk: int = None, epochs: int = 100,
                   seed: int = None, init_as_max_wt_prob: bool = True) -> np.ndarray:
