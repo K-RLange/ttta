@@ -494,7 +494,7 @@ class RollingLDA:
 
 
     def wordclouds(self, chunks: List[int] = None, topic: int = None, number: int = 50, path: str = "wordclouds",
-                   height: int = 500, width: int = 700, show: bool = True):
+                   height: int = 500, width: int = 700, show: bool = True, presentation: bool = True):
         """Plot the wordclouds for the given chunk.
 
         If chunk is None, the wordclouds are plotted for every time chunk.
@@ -506,6 +506,7 @@ class RollingLDA:
             width: width of the image
             height: height of the image
             show: should the image be shown
+            presentation: Should the topic number be 1-indexed for presentation purposes?
         Returns:
             None
         """
@@ -521,11 +522,11 @@ class RollingLDA:
                 os.makedirs(path)
                 path += "/" if path[-1] != "/" else ""
             self.lda.wordclouds(topic=topic, number=number, path=os.path.join(path, f"chunk_{chunk}.pdf"), height=height, width=width,
-                                show=show, word_topic_matrix=word_topic_matrix)
+                                show=show, word_topic_matrix=word_topic_matrix, presentation=presentation)
 
     def visualize(self, chunk: int = None, number: int = 30,
-                  path: str = "ldaviz.html", open_browser: bool = True) \
-            -> None:
+                  path: str = "ldaviz.html", open_browser: bool = True,
+                  presentation: bool = True) -> None:
         """
         Visualize the RollingLDA model using pyLDAvis.
         Args:
@@ -534,7 +535,7 @@ class RollingLDA:
             number: The number of top words to include in the visualization.
             path: The path to save the visualization to.
             open_browser: Whether to open the visualization in the browser.
-
+            presentation: Should the topic number be 1-indexed for presentation purposes?
         Returns:
             None
         """
@@ -558,6 +559,8 @@ class RollingLDA:
             raise TypeError("path must be a string!")
         if not isinstance(open_browser, bool):
             raise TypeError("open_browser must be a boolean!")
+        if not isinstance(presentation, bool):
+            raise TypeError("presentation must be a boolean!")
         word_topic_matrix = self.get_word_topic_matrix(chunk)
         topic_term_dists = (word_topic_matrix /
                             word_topic_matrix.sum(axis=0, keepdims=True)).transpose()
@@ -578,6 +581,13 @@ class RollingLDA:
         term_frequency = word_topic_matrix.sum(axis=1)
         vocab = self.lda.get_vocab()
         ldaviz_data = prepare(topic_term_dists, doc_topic_dists, len_of_docs, vocab, term_frequency, number, sort_topics=False)
+        if presentation == False:
+            # If presentation mode is off, start topic index at 0
+            ldaviz_data.topic_info["Category"] = ldaviz_data.topic_info["Category"].apply(
+                lambda x: f"Topic{int(x.replace('Topic', '')) - 1}" if x.startswith("Topic") else x)
+            ldaviz_data.topic_coordinates["topics"] = ldaviz_data.topic_coordinates["topics"].apply(
+                lambda x: int(x) - 1)
+            ldaviz_data.topic_order = [x - 1 for x in ldaviz_data.topic_order]
         save_html(ldaviz_data, path)
         if open_browser:
             webbrowser.open_new_tab(path)
@@ -751,7 +761,8 @@ class RollingLDA:
             return topic_shares.nlargest(number)
 
     def topic_evolution(self, topic: int = None, path: str = None, show: bool = True,
-                        figsize: Tuple[int, int] = (15, 5), date_format: str = '%Y-%m-%d') -> None:
+                        figsize: Tuple[int, int] = (15, 5), date_format: str = '%Y-%m-%d',
+                        presentation: bool = True) -> None:
         """Plot the evolution of the topic shares over time.
 
         Args:
@@ -760,6 +771,7 @@ class RollingLDA:
             show: Whether to show the plot.
             figsize: The size of the plot.
             date_format: Define how granular the date labels on the x-axis should be.
+            presentation: Should the topic number be 1-indexed for presentation purposes?
         Returns:
             The topic evolution as a pandas DataFrame. Can be used to create custom plots.
         """
@@ -783,10 +795,12 @@ class RollingLDA:
             raise TypeError("topic must be an integer or 'None'!")
         if path is not None and not isinstance(path, str):
             raise TypeError("path must be a string!")
+        if not isinstance(presentation, bool):
+            raise TypeError("presentation must be a boolean!")
         topic_shares = self.topic_shares()
         topic_shares = topic_shares.reset_index(drop=True)
         if topic is not None:
-            topic_shares = topic_shares[f"Topic {topic}"]
+            topic_shares = topic_shares[f"Topic {topic + presentation}"]
         sns.set_theme(style="whitegrid")
         sns.set_palette("muted")
 

@@ -520,7 +520,7 @@ class LDAPrototype:
 
     def top_words(self, number: int = 5, topic: int = None, importance: Union[bool, np.ndarray] = True,
                   word_topic_matrix: np.ndarray = None, return_as_data_frame: bool = True,
-                  vocab: List[str] = None) -> Union[List[str], List[List[str]], pd.DataFrame]:
+                  vocab: List[str] = None, presentation: bool = False) -> Union[List[str], List[List[str]], pd.DataFrame]:
         """
         Get the most relevant and distinctive words for a topic.
         Args:
@@ -531,6 +531,7 @@ class LDAPrototype:
             word_topic_matrix: word-topic matrix
             return_as_data_frame: should the result be returned as a pandas DataFrame (Default) or a list?
             vocab: vocabulary
+            presentation: Should the topic number be 1-indexed for presentation purposes?
         Returns:
             top_words: top words
         """
@@ -555,6 +556,8 @@ class LDAPrototype:
             raise ValueError("topic must be a natural number between 1 and K")
         if not isinstance(importance, bool) and not isinstance(importance, np.ndarray):
                 raise TypeError("importance must be a boolean!")
+        if not isinstance(presentation, bool):
+            raise TypeError("presentation must be a boolean!")
         if word_topic_matrix is not None and not isinstance(word_topic_matrix, np.ndarray):
             raise TypeError("word_topic_matrix must be a numpy array!")
         if word_topic_matrix is None:
@@ -573,7 +576,7 @@ class LDAPrototype:
         if topic is None:
             top_words = [self.top_words(number, k, importance, word_topic_matrix, vocab=vocab) for k in range(self._K)]
             if return_as_data_frame:
-                top_words = pd.DataFrame(np.asarray(top_words).transpose(), columns=[f"Topic {k}" for k in range(len(top_words))])
+                top_words = pd.DataFrame(np.asarray(top_words).transpose(), columns=[f"Topic {k + presentation}" for k in range(len(top_words))])
             return top_words
         else:
             if isinstance(importance, np.ndarray):
@@ -581,7 +584,8 @@ class LDAPrototype:
             return [vocab[index] for index in np.argsort(-word_topic_matrix[topic, :])[:number]]
 
     def wordclouds(self, topic: int = None, number: int = 50, path: str = "wordclouds.pdf", height: int = 600, width: int = 700,
-                   show: bool = True, word_topic_matrix: np.ndarray = None) -> None:
+                   show: bool = True, word_topic_matrix: np.ndarray = None,
+                   presentation: bool = True) -> None:
         """
         Create a word cloud from a topic using the wordcloud library.
 
@@ -593,6 +597,7 @@ class LDAPrototype:
             height: height of the image
             show: should the image be shown
             word_topic_matrix: Optional. If you want the wordclouds to be based on a specific word-topic matrix, you can pass it here.
+            presentation: Should the topic number be 1-indexed for presentation purposes?
         Returns:
             None
         """
@@ -607,8 +612,8 @@ class LDAPrototype:
                 topic = int(topic)
             except ValueError:
                 raise TypeError("topic must be an integer!")
-        if topic is not None and (topic < 1 or topic > self._K):
-            raise ValueError("topic must be a natural number between 1 and K")
+        if topic is not None and (topic < 0 or topic >= self._K):
+            raise ValueError("topic must be a natural number between 0 and K-1")
         if not isinstance(number, int):
             try:
                 if number != int(number):
@@ -636,6 +641,8 @@ class LDAPrototype:
                 width = int(width)
             except ValueError:
                 raise TypeError("width must be an integer!")
+        if not isinstance(presentation, bool):
+            raise TypeError("presentation must be a boolean!")
         if width < 1:
             raise ValueError("width must be a natural number greater than 0")
         if not isinstance(show, bool):
@@ -654,16 +661,16 @@ class LDAPrototype:
         figures = []
         for i, cloud in enumerate(word_weights):
             if sum(cloud.values()) == 0:
-                warnings.warn(f"Topic {i + 1} has no words! This might happen if there are too few words in the corpus, compared to the number of topics!")
+                warnings.warn(f"Topic {i + presentation} has no words! This might happen if there are too few words in the corpus, compared to the number of topics!")
                 continue
             wordcloud = WordCloud(width=width, height=height, background_color='white').generate_from_frequencies(cloud)
             fig = plt.figure(figsize=(15, 15 * height / width), dpi=150)
             plt.imshow(wordcloud, interpolation='bilinear')
             plt.axis('off')
             if topic is None:
-                plt.title(f'Word Cloud {i + 1}')
+                plt.title(f'Word Cloud {i + presentation}')
             else:
-                plt.title(f'Word Cloud {topic + 1}')
+                plt.title(f'Word Cloud {topic + presentation}')
             figures.append(fig)
             if show:
                 fig.show()
@@ -758,7 +765,7 @@ class LDAPrototype:
         return self._is_trained
 
     def visualize(self, number: int = 30, path: str = "ldaviz.html",
-                  open_browser: bool = True) -> None:
+                  open_browser: bool = True, presentation: bool = True) -> None:
         """
         Visualizes the LDAPrototype model using pyLDAvis.
 
@@ -766,6 +773,7 @@ class LDAPrototype:
             number: The number of top words to include in the visualization.
             path: The path to save the visualization to.
             open_browser: Whether to open the visualization in the browser.
+            presentation: Should the topic number be 1-indexed for presentation purposes?
         Returns:
             None
         """
@@ -781,6 +789,8 @@ class LDAPrototype:
             raise TypeError("path must be a string!")
         if not isinstance(open_browser, bool):
             raise TypeError("open_browser must be a boolean!")
+        if not isinstance(presentation, bool):
+            raise TypeError("presentation must be a boolean!")
         word_topic_matrix = self.get_word_topic_matrix()
         topic_term_dists = (word_topic_matrix /
                             word_topic_matrix.sum(axis=0, keepdims=True)).transpose()
@@ -796,6 +806,13 @@ class LDAPrototype:
             doc_topic_dists[:, 0] -= doc_topic_dists.sum(axis=1) - 1
         term_frequency = word_topic_matrix.sum(axis=1)
         ldaviz_data = prepare(topic_term_dists, doc_topic_dists, len_of_docs, self.get_vocab(), term_frequency, number, sort_topics=False)
+        if presentation == False:
+            # If presentation mode is off, start topic index at 0
+            ldaviz_data.topic_info["Category"] = ldaviz_data.topic_info["Category"].apply(
+                lambda x: f"Topic{int(x.replace('Topic', '')) - 1}" if x.startswith("Topic") else x)
+            ldaviz_data.topic_coordinates["topics"] = ldaviz_data.topic_coordinates["topics"].apply(
+                lambda x: int(x) - 1)
+            ldaviz_data.topic_order = [x - 1 for x in ldaviz_data.topic_order]
         save_html(ldaviz_data, path)
         if open_browser:
             webbrowser.open_new_tab(path)
