@@ -52,7 +52,7 @@ int vanilla_gibbs(unsigned long long * w_vec, unsigned int * as_vec, unsigned lo
             }
             if (probs[K-1]==0) {
               printf("probs are equal to %f\n", probs[K-1]);
-              for (int newk = 0; newk < K; ++newk) probs[newk]= (long double) (kk+1.0)/K;
+              for (int newk = 0; newk < K; ++newk) probs[newk]= (long double) (newk+1.0)/K;
             }
             // print the probs:
 //            for (int kk = 0; kk < K; kk++) {
