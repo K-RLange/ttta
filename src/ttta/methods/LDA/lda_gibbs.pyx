@@ -35,7 +35,7 @@ def vanilla_gibbs_func(np.ndarray[np.npy_uint64, ndim=1, mode="c"] w_vec,
                        np.ndarray[double, ndim=1, mode="c"] alpha,
                        np.ndarray[double, ndim=1, mode="c"] gamma,
                        np.ndarray[long double, ndim=1, mode="c"] probs,
-                       K, iter, start, seed):
+                       K, V, iter, start, seed):
 
 
     assert w_vec.shape[0] == as_vec.shape[0] == d_vec.shape[0]
@@ -63,7 +63,7 @@ def vanilla_gibbs_func(np.ndarray[np.npy_uint64, ndim=1, mode="c"] w_vec,
                            <double*> np.PyArray_DATA(gamma),
                            <long double*> np.PyArray_DATA(probs),
                            K,
-                           vk_mat.shape[0],
+                           V,
                            dk_mat.shape[0],
                            w_vec.shape[0],iter,start,seed)
     if result == 1:

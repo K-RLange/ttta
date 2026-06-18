@@ -442,7 +442,7 @@ class LDAPrototype:
             raise TypeError("sample must be an integer!")
         vanilla_gibbs_func(word_vec, assignment_vec, doc_vec, word_topic_matrix, document_topic_matrix, v_sum,
                            np.array(self._alpha.copy()), np.array(self._gamma.copy()), np.zeros((self._K,), dtype=np.longdouble),
-                           self._K, epochs, 0, self.seed[sample])
+                           self._K, len(set(word_vec)), epochs, 0, self.seed[sample])
 
         if self._max_assign:
             final_assignment_func(word_vec, assignment_vec, doc_vec, word_topic_matrix, document_topic_matrix, v_sum,
