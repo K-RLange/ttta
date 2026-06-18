@@ -5,7 +5,7 @@
 
 int vanilla_gibbs(unsigned long long * w_vec, unsigned int * as_vec, unsigned long long * d_vec, unsigned long long * vk_mat,  unsigned long long * dk_mat,
                    unsigned long long * v_sum, double * alpha, double * gamma, long double * probs,
-                   int K, int V, long D, long W, int iter, int start, unsigned int seed){
+                   int K, long V, long Vchunk, long D, long W, int iter, int start, unsigned int seed){
     unsigned int k0, k1;
     unsigned long long vv=0, dd=0, ww, ii;
     long double random;
@@ -45,10 +45,10 @@ int vanilla_gibbs(unsigned long long * w_vec, unsigned int * as_vec, unsigned lo
             if (vv * K + k0 >= V * K|| dd * K + k0 >= D * K || k0 >= K) {
                 return 3; // Out-of-bounds error
             }
-            probs[0] = (long double) (vk_mat[vv*K] + gamma[0]) * (dk_mat[dd*K] + alpha[0]) / (v_sum[0] + V * gamma[0]);
+            probs[0] = (long double) (vk_mat[vv*K] + gamma[0]) * (dk_mat[dd*K] + alpha[0]) / (v_sum[0] + Vchunk * gamma[0]);
 
             for (int kk = 1; kk < K; kk++) {
-                probs[kk] =(long double) (vk_mat[vv*K+kk] + gamma[kk]) * (dk_mat[dd*K+kk] + alpha[kk]) / (v_sum[kk] + V * gamma[kk]) + probs[kk -1];
+                probs[kk] =(long double) (vk_mat[vv*K+kk] + gamma[kk]) * (dk_mat[dd*K+kk] + alpha[kk]) / (v_sum[kk] + Vchunk * gamma[kk]) + probs[kk -1];
             }
             if (probs[K-1]==0) {
               printf("probs are equal to %f\n", probs[K-1]);
